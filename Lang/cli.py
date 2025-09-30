@@ -1,10 +1,11 @@
 """
 Command-Line Interface for the Lang Programming Language
-Assignment 3 Setup
+Assignment 3: Tokenization Implementation
 """
 
 import sys
 import os
+from Tokenizer import Tokenizer
 
 
 def print_banner():
@@ -32,7 +33,8 @@ def execute_line(line):
 
 def compile_file(filename):
     """
-    Compile a file by reading all lines and displaying with line numbers
+    Compile a file by reading all lines, displaying with line numbers,
+    and showing tokenized output
     """
     if not os.path.exists(filename):
         print(f"Error: File '{filename}' not found")
@@ -44,11 +46,27 @@ def compile_file(filename):
     try:
         with open(filename, 'r') as file:
             lines = file.readlines()
-            
+        
         for line_num, line in enumerate(lines, start=1):
             # Remove trailing newline for display
             line_content = line.rstrip('\n')
             print(f"Line {line_num:3d}: {line_content}")
+            
+            # Tokenize the line
+            tokens = Tokenizer.tokenize_line(line_content)
+            
+            # Add eol token
+            if tokens:
+                tokens_with_eol = tokens + ['eol']
+            else:
+                tokens_with_eol = ['eol']
+            
+            # Format and print tokens
+            formatted_tokens = Tokenizer.format_tokens(tokens_with_eol)
+            print(f"         {formatted_tokens}")
+        
+        # Print eof token at the end
+        print("         eof")
         
         print("-" * 60)
         print(f"[COMPILATION COMPLETE] Processed {len(lines)} line(s)")

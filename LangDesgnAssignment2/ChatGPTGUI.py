@@ -10,8 +10,8 @@
 *    DESCRIPTION:                                                  *
 *    Contains the code for the graphical aspect of the complier    *
 *    Contains three boxes one for code, output, and graphics       *
-*    Modified for Assignment 3: No longer executes Python code,    *
-*    instead echoes input and compiles with line numbers           *
+*    Modified for Assignment 3: Tokenization implementation        *
+*    Displays line numbers and tokenized output with eol/eof       *
 *    COPYRIGHT:                                                    *
 *    This code is copyright (c)2025 Ethan Nelson and Dean Zeller.  *
 *                                                                  *
@@ -28,6 +28,10 @@ from PyQt6.QtWidgets import (
     QTextEdit, QPushButton, QLabel, QSplitter, QFileDialog
 )
 from PyQt6.QtCore import Qt
+
+# Add parent directory to path to import from Lang
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'Lang'))
+from Tokenizer import Tokenizer
 
 class CodeRunner(QWidget):
     def __init__(self):
@@ -166,7 +170,7 @@ class CodeRunner(QWidget):
     def compile_code(self):
         """
         Compile all lines in the code editor
-        (Assignment 3: Display with line numbers)
+        (Assignment 3: Display with line numbers and tokenization)
         """
         code = self.code_editor.toPlainText()
         
@@ -181,6 +185,22 @@ class CodeRunner(QWidget):
         
         for line_num, line in enumerate(lines, start=1):
             self.output_box.append(f"Line {line_num:3d}: {line}")
+            
+            # Tokenize the line
+            tokens = Tokenizer.tokenize_line(line)
+            
+            # Add eol token
+            if tokens:
+                tokens_with_eol = tokens + ['eol']
+            else:
+                tokens_with_eol = ['eol']
+            
+            # Format and print tokens
+            formatted_tokens = Tokenizer.format_tokens(tokens_with_eol)
+            self.output_box.append(f"         {formatted_tokens}")
+        
+        # Print eof token at the end
+        self.output_box.append("         eof")
         
         self.output_box.append("-" * 60)
         self.output_box.append(f"[COMPILATION COMPLETE] Processed {len(lines)} line(s)")
@@ -188,7 +208,7 @@ class CodeRunner(QWidget):
 
     def load_file(self):
         """
-        Load a file into the code editor and compile it
+        Load a file into the code editor and compile it with tokenization
         """
         file_path, _ = QFileDialog.getOpenFileName(
             self,
@@ -213,6 +233,22 @@ class CodeRunner(QWidget):
                 
                 for line_num, line in enumerate(lines, start=1):
                     self.output_box.append(f"Line {line_num:3d}: {line}")
+                    
+                    # Tokenize the line
+                    tokens = Tokenizer.tokenize_line(line)
+                    
+                    # Add eol token
+                    if tokens:
+                        tokens_with_eol = tokens + ['eol']
+                    else:
+                        tokens_with_eol = ['eol']
+                    
+                    # Format and print tokens
+                    formatted_tokens = Tokenizer.format_tokens(tokens_with_eol)
+                    self.output_box.append(f"         {formatted_tokens}")
+                
+                # Print eof token at the end
+                self.output_box.append("         eof")
                 
                 self.output_box.append("-" * 60)
                 self.output_box.append(f"[COMPILATION COMPLETE] Processed {len(lines)} line(s)")

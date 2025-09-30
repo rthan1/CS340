@@ -1,7 +1,7 @@
-# Lang Programming Language - Assignment 3 Setup
+# Lang Programming Language - Assignment 3: Tokenization
 
 ## Overview
-This is the setup for Assignment 3, which provides an interactive interpreter for the Lang programming language.
+This is Assignment 3, which implements a tokenizer for the Lang programming language. The system can read source files, display them with line numbers, and tokenize each line into its component tokens.
 
 ## Features
 
@@ -19,11 +19,11 @@ python ide_entry.py
 
 **Commands:**
 - Type any code to execute it (currently echoes back the input)
-- Type `compile <filename>` to compile a file
+- Type `compile <filename>` to compile and tokenize a file
 - Type `exit` or `quit` to exit the interpreter
 
-### 2. File Compilation Mode
-Compile a text file by reading all lines and displaying them with line numbers.
+### 2. File Compilation and Tokenization Mode
+Compile a text file by reading all lines, displaying them with line numbers, and showing the tokenized output. Each line is followed by its tokens separated by vertical bars (|), with `eol` marking the end of each line and `eof` marking the end of the file.
 
 **Usage:**
 ```bash
@@ -51,23 +51,50 @@ Lang> compile test-txt/operation.txt
 [COMPILING] test-txt/operation.txt
 ------------------------------------------------------------
 Line   1: 1 + 5
+         1 | + | 5 | eol
 Line   2: x = 10
+         x | = | 10 | eol
 Line   3: y = 20
+         y | = | 20 | eol
 Line   4: z = x + y
+         z | = | x | + | y | eol
 Line   5: print(z)
+         print | ( | z | ) | eol
 Line   6: result = z * 2
+         result | = | z | * | 2 | eol
 Line   7: output(result)
+         output | ( | result | ) | eol
+         eof
 ------------------------------------------------------------
 [COMPILATION COMPLETE] Processed 7 line(s)
 ```
 
 ## Files Structure
-- `cli.py` - Main command-line interface and entry point
+- `cli.py` - Main command-line interface and entry point with tokenization support
 - `ide_entry.py` - IDE entry point (calls cli.py main function)
-- `Tokenizer.py` - (To be implemented in next phase)
+- `Tokenizer.py` - **✓ Implemented** - Tokenizes Lang source code into individual tokens
 - `Parser.py` - (To be implemented in next phase)
 - `Interpreter.py` - (To be implemented in next phase)
 - `test-txt/` - Directory containing test files
+- `test_tokenizer.py` - Test script to demonstrate tokenization
 
-## Next Steps (Assignment 3)
-The next phase will implement the Tokenizer to break down input lines into tokens for further processing.
+## Tokenization Features
+
+The tokenizer recognizes and handles:
+- **Keywords**: `if`, `else`, `elif`, `while`, `for`, `def`, `return`, `print`, `input`, `output`, etc.
+- **Operators**: `+`, `-`, `*`, `/`, `//`, `%`, `**`, `=`, `==`, `!=`, `<`, `>`, `<=`, `>=`, etc.
+- **Delimiters**: `(`, `)`, `[`, `]`, `{`, `}`, `,`, `:`, `;`, `.`, `@`
+- **Identifiers**: Variable and function names
+- **Literals**: Numbers (integers and floats), strings (single or double quoted)
+- **Special Tokens**: `eol` (end of line) and `eof` (end of file)
+
+## GUI Interface
+
+The project also includes a PyQt6-based GUI (`LangDesgnAssignment2/ChatGPTGUI.py`) that provides:
+- Code editor with syntax highlighting support
+- Output console showing compilation and tokenization results
+- Graphics panel (for future use)
+- Buttons to execute lines, compile all code, load files, and clear output
+
+## Next Steps
+The next phase will implement the Parser to build an Abstract Syntax Tree (AST) from the tokens.
