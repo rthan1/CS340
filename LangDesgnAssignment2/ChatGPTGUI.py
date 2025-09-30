@@ -5,11 +5,13 @@
 *    PROGRAMMER: Ethan Nelson                                      *
 *    COURSE: CS340 Program Language Design                         *
 *    DATE: 9/4/25                                                  *
-*    REQUIREMENT: Assignment number 2                              *
+*    REQUIREMENT: Assignment number 3                              *
 *                                                                  *
 *    DESCRIPTION:                                                  *
 *    Contains the code for the graphical aspect of the complier    *
 *    Contains three boxes one for code, output, and graphics       *
+*    Modified for Assignment 3: No longer executes Python code,    *
+*    instead echoes input and compiles with line numbers           *
 *    COPYRIGHT:                                                    *
 *    This code is copyright (c)2025 Ethan Nelson and Dean Zeller.  *
 *                                                                  *
@@ -20,17 +22,17 @@
 '''
 
 import sys
-import subprocess
+import os
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout,
-    QTextEdit, QPushButton, QLabel, QSplitter
+    QTextEdit, QPushButton, QLabel, QSplitter, QFileDialog
 )
 from PyQt6.QtCore import Qt
 
 class CodeRunner(QWidget):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Python Code Runner")
+        self.setWindowTitle("Lang Programming Language - Interactive IDE")
         self.setGeometry(100, 100, 1000, 600)
         self.init_ui()
 
@@ -42,7 +44,7 @@ class CodeRunner(QWidget):
 
         # --- Program (text input) ---
         self.code_editor = QTextEdit()
-        self.code_editor.setPlaceholderText("# Type your Python code here")
+        self.code_editor.setPlaceholderText("# Type your Lang code here\n# Click 'Execute Line' to execute current line\n# Click 'Compile All' to compile all lines")
         self.code_editor.setStyleSheet("font-family: Consolas; font-size: 14px;")
         splitter.addWidget(self.wrap_with_label("Program", self.code_editor))
 
@@ -56,15 +58,35 @@ class CodeRunner(QWidget):
         self.graphics_box = QTextEdit()
         self.graphics_box.setReadOnly(True)
         self.graphics_box.setStyleSheet("font-family: Consolas; font-size: 13px; background-color: #f0f0f0;")
-        self.graphics_box.setPlaceholderText("Graphics will appear here if your code opens a window.")
+        self.graphics_box.setPlaceholderText("Graphics will appear here in future assignments.")
         splitter.addWidget(self.wrap_with_label("Graphics", self.graphics_box))
 
         splitter.setSizes([350, 350, 300])  # initial size distribution
         main_layout.addWidget(splitter)
 
-        # --- Run button ---
-        run_button = QPushButton("Run Code")
-        run_button.setStyleSheet("""
+        # --- Button layout ---
+        button_layout = QHBoxLayout()
+        
+        # Execute Line button
+        execute_line_button = QPushButton("Execute Line")
+        execute_line_button.setStyleSheet("""
+            QPushButton {
+                font-size: 16px;
+                padding: 8px;
+                background-color: #28a745;
+                color: white;
+                border-radius: 6px;
+            }
+            QPushButton:hover {
+                background-color: #218838;
+            }
+        """)
+        execute_line_button.clicked.connect(self.execute_line)
+        button_layout.addWidget(execute_line_button)
+        
+        # Compile All button
+        compile_button = QPushButton("Compile All")
+        compile_button.setStyleSheet("""
             QPushButton {
                 font-size: 16px;
                 padding: 8px;
@@ -76,8 +98,44 @@ class CodeRunner(QWidget):
                 background-color: #005a9e;
             }
         """)
-        run_button.clicked.connect(self.run_code)
-        main_layout.addWidget(run_button)
+        compile_button.clicked.connect(self.compile_code)
+        button_layout.addWidget(compile_button)
+        
+        # Load File button
+        load_file_button = QPushButton("Load File")
+        load_file_button.setStyleSheet("""
+            QPushButton {
+                font-size: 16px;
+                padding: 8px;
+                background-color: #6c757d;
+                color: white;
+                border-radius: 6px;
+            }
+            QPushButton:hover {
+                background-color: #545b62;
+            }
+        """)
+        load_file_button.clicked.connect(self.load_file)
+        button_layout.addWidget(load_file_button)
+        
+        # Clear button
+        clear_button = QPushButton("Clear Output")
+        clear_button.setStyleSheet("""
+            QPushButton {
+                font-size: 16px;
+                padding: 8px;
+                background-color: #dc3545;
+                color: white;
+                border-radius: 6px;
+            }
+            QPushButton:hover {
+                background-color: #c82333;
+            }
+        """)
+        clear_button.clicked.connect(self.clear_output)
+        button_layout.addWidget(clear_button)
+        
+        main_layout.addLayout(button_layout)
 
     def wrap_with_label(self, title, widget):
         container = QWidget()
@@ -88,22 +146,84 @@ class CodeRunner(QWidget):
         layout.addWidget(widget)
         return container
 
-    def run_code(self):
-        code = self.code_editor.toPlainText()
-        self.output_box.clear()
+    def execute_line(self):
+        """
+        Execute the current line where the cursor is positioned
+        (Assignment 3: Just echoes back the line)
+        """
+        cursor = self.code_editor.textCursor()
+        cursor.select(cursor.SelectionType.LineUnderCursor)
+        line = cursor.selectedText().strip()
+        
+        if not line:
+            self.output_box.append("No line to execute.\n")
+            return
+        
+        self.output_box.append(f"[EXECUTING] {line}")
+        self.output_box.append(f"Output: {line}")
+        self.output_box.append("")
 
-        # Run code in a subprocess to isolate environment
-        try:
-            result = subprocess.run(
-                [sys.executable, "-c", code],
-                capture_output=True, text=True, timeout=10
-            )
-            if result.stdout:
-                self.output_box.append(result.stdout)
-            if result.stderr:
-                self.output_box.append(result.stderr)
-        except Exception as e:
-            self.output_box.append(f"Error running code: {e}")
+    def compile_code(self):
+        """
+        Compile all lines in the code editor
+        (Assignment 3: Display with line numbers)
+        """
+        code = self.code_editor.toPlainText()
+        
+        if not code.strip():
+            self.output_box.append("No code to compile.\n")
+            return
+        
+        lines = code.split('\n')
+        
+        self.output_box.append("[COMPILING] All Code")
+        self.output_box.append("-" * 60)
+        
+        for line_num, line in enumerate(lines, start=1):
+            self.output_box.append(f"Line {line_num:3d}: {line}")
+        
+        self.output_box.append("-" * 60)
+        self.output_box.append(f"[COMPILATION COMPLETE] Processed {len(lines)} line(s)")
+        self.output_box.append("")
+
+    def load_file(self):
+        """
+        Load a file into the code editor and compile it
+        """
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Open File",
+            "",
+            "Text Files (*.txt);;All Files (*.*)"
+        )
+        
+        if file_path:
+            try:
+                with open(file_path, 'r') as file:
+                    content = file.read()
+                
+                self.code_editor.setPlainText(content)
+                
+                # Automatically compile the loaded file
+                lines = content.split('\n')
+                
+                self.output_box.append(f"[LOADED FILE] {os.path.basename(file_path)}")
+                self.output_box.append(f"[COMPILING] {os.path.basename(file_path)}")
+                self.output_box.append("-" * 60)
+                
+                for line_num, line in enumerate(lines, start=1):
+                    self.output_box.append(f"Line {line_num:3d}: {line}")
+                
+                self.output_box.append("-" * 60)
+                self.output_box.append(f"[COMPILATION COMPLETE] Processed {len(lines)} line(s)")
+                self.output_box.append("")
+                
+            except Exception as e:
+                self.output_box.append(f"Error loading file: {e}\n")
+
+    def clear_output(self):
+        """Clear the output box"""
+        self.output_box.clear()
 
 def main():
     app = QApplication(sys.argv)

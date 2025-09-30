@@ -1,0 +1,7 @@
+# Sample program for Lang
+a = 5
+b = 10
+c = a + b
+print(c)
+d = c * 2
+print(d)
