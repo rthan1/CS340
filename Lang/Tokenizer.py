@@ -1,6 +1,24 @@
 """
-Tokenizer for the Lang Programming Language
-Assignment 3: Tokenization Implementation
+/*******************************************************************
+*                   Tokenizer for the Lang Language                *
+*                                                                  *
+*    PROGRAMMER: Ethan Nelson                                      *
+*    COURSE: CS340 Program Language Design                         *
+*    DATE: 9/4/25                                                  *
+*    REQUIREMENT: Assignment number 3                              *
+*                                                                  *
+*    DESCRIPTION:                                                  *
+*    Provides tokenization utilities for the Lang programming      *
+*    language, including line and file tokenization and formatted  *
+*    token output.                                                 *
+*                                                                  *
+*    COPYRIGHT:                                                    *
+*    This code is copyright (c)2025 Andrew Olvera and Dean Zeller. *
+*                                                                  *
+*    CREDITS:                                                      *
+*    ChatGPT                                                       *
+*                                                                  *
+*******************************************************************/
 """
 
 import re
@@ -34,19 +52,25 @@ class Tokenizer:
     }
     
     def __init__(self):
-        """Initialize the tokenizer"""
+        """
+        /**********************************************************
+        * METHOD: __init__                                        *
+        * DESCRIPTION: Initialize a Tokenizer instance            *
+        * PARAMETERS: None                                        *
+        * RETURN VALUE: None                                      *
+        **********************************************************/
+        """
         pass
     
     @staticmethod
     def tokenize_line(line):
         """
-        Tokenize a single line of code
-        
-        Args:
-            line: A string representing a line of code
-            
-        Returns:
-            A list of tokens
+        /**********************************************************
+        * METHOD: tokenize_line                                   *
+        * DESCRIPTION: Tokenize a single line of Lang code        *
+        * PARAMETERS: line (str) - input code line                *
+        * RETURN VALUE: list[str] - tokens for the line           *
+        **********************************************************/
         """
         tokens = []
         line = line.strip()
@@ -81,13 +105,12 @@ class Tokenizer:
     @staticmethod
     def format_tokens(tokens):
         """
-        Format tokens for display, separated by vertical bars
-        
-        Args:
-            tokens: List of token strings
-            
-        Returns:
-            A formatted string with tokens separated by |
+        /**********************************************************
+        * METHOD: format_tokens                                   *
+        * DESCRIPTION: Format tokens separated by vertical bars   *
+        * PARAMETERS: tokens (list[str]) - tokens to format       *
+        * RETURN VALUE: str - tokens joined with " | "            *
+        **********************************************************/
         """
         if not tokens:
             return ""
@@ -96,13 +119,12 @@ class Tokenizer:
     @staticmethod
     def tokenize_file(file_path):
         """
-        Tokenize an entire file
-        
-        Args:
-            file_path: Path to the file to tokenize
-            
-        Returns:
-            A list of tuples (line_number, line_content, tokens)
+        /**********************************************************
+        * METHOD: tokenize_file                                   *
+        * DESCRIPTION: Tokenize an entire file                    *
+        * PARAMETERS: file_path (str) - path to source file       *
+        * RETURN VALUE: list[tuple] - (line_no, content, tokens)  *
+        **********************************************************/
         """
         result = []
         
@@ -123,10 +145,12 @@ class Tokenizer:
     @staticmethod
     def print_tokenized_file(file_path):
         """
-        Print a tokenized file with line numbers and tokens
-        
-        Args:
-            file_path: Path to the file to tokenize and print
+        /**********************************************************
+        * METHOD: print_tokenized_file                            *
+        * DESCRIPTION: Print tokenized lines with eol/eof         *
+        * PARAMETERS: file_path (str) - path to source file       *
+        * RETURN VALUE: None                                      *
+        **********************************************************/
         """
         try:
             tokenized_lines = Tokenizer.tokenize_file(file_path)
@@ -153,7 +177,12 @@ class Tokenizer:
 
 def main():
     """
-    Main function for testing the tokenizer
+    /**********************************************************
+    * METHOD: main                                            *
+    * DESCRIPTION: Entry point for testing the tokenizer      *
+    * PARAMETERS: None                                        *
+    * RETURN VALUE: None                                      *
+    **********************************************************/
     """
     import sys
     

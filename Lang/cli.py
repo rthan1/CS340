@@ -1,6 +1,24 @@
 """
-Command-Line Interface for the Lang Programming Language
-Assignment 3: Tokenization Implementation
+/*******************************************************************
+*        CLI for the Lang Programming Language (Assignment 3)       *
+*                                                                  *
+*    PROGRAMMER: Ethan Nelson                                      *
+*    COURSE: CS340 Program Language Design                         *
+*    DATE: 9/4/25                                                  *
+*    REQUIREMENT: Assignment number 3                              *
+*                                                                  *
+*    DESCRIPTION:                                                  *
+*    Command-Line Interface (CLI) for interacting with the Lang    *
+*    programming language. Provides an interactive REPL and file   *
+*    compilation that displays line numbers and tokenized output.   *
+*                                                                  *
+*    COPYRIGHT:                                                    *
+*    This code is copyright (c)2025 Ethan Nelson and Dean Zeller.  *
+*                                                                  *
+*    CREDITS:                                                      *
+*    ChatGPT                                                       *
+*                                                                  *
+*******************************************************************/
 """
 
 import sys
@@ -9,7 +27,14 @@ from Tokenizer import Tokenizer
 
 
 def print_banner():
-    """Print the welcome banner for the Lang interpreter"""
+    """
+    /**********************************************************
+    * METHOD: print_banner                                    *
+    * DESCRIPTION: Print the welcome banner for the Lang CLI  *
+    * PARAMETERS: None                                        *
+    * RETURN VALUE: None                                      *
+    **********************************************************/
+    """
     print("=" * 60)
     print("  Lang Programming Language - Interactive Mode")
     print("=" * 60)
@@ -23,8 +48,12 @@ def print_banner():
 
 def execute_line(line):
     """
-    Execute a single line of code
-    Currently just echoes back the input (Assignment 3 setup)
+    /**********************************************************
+    * METHOD: execute_line                                    *
+    * DESCRIPTION: Execute a single line of Lang code         *
+    * PARAMETERS: line (str) - the code line to execute       *
+    * RETURN VALUE: None                                      *
+    **********************************************************/
     """
     print(f"[EXECUTING] {line}")
     print(f"Output: {line}")
@@ -33,8 +62,12 @@ def execute_line(line):
 
 def compile_file(filename):
     """
-    Compile a file by reading all lines, displaying with line numbers,
-    and showing tokenized output
+    /**********************************************************
+    * METHOD: compile_file                                    *
+    * DESCRIPTION: Compile a file and display tokenized lines *
+    * PARAMETERS: filename (str) - path to the file           *
+    * RETURN VALUE: None                                      *
+    **********************************************************/
     """
     if not os.path.exists(filename):
         print(f"Error: File '{filename}' not found")
@@ -78,7 +111,12 @@ def compile_file(filename):
 
 def interactive_mode():
     """
-    Run the interactive REPL (Read-Eval-Print Loop)
+    /**********************************************************
+    * METHOD: interactive_mode                                *
+    * DESCRIPTION: Run the interactive REPL for Lang          *
+    * PARAMETERS: None                                        *
+    * RETURN VALUE: None                                      *
+    **********************************************************/
     """
     print_banner()
     
@@ -116,7 +154,14 @@ def interactive_mode():
 
 
 def main():
-    """Main entry point for the CLI"""
+    """
+    /**********************************************************
+    * METHOD: main                                            *
+    * DESCRIPTION: Entry point for the Lang CLI               *
+    * PARAMETERS: None                                        *
+    * RETURN VALUE: None                                      *
+    **********************************************************/
+    """
     if len(sys.argv) > 1:
         # File mode - compile the specified file
         filename = sys.argv[1]
