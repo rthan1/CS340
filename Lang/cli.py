@@ -1,24 +1,24 @@
 """
-/*******************************************************************
-*        CLI for the Lang Programming Language (Assignment 3)       *
-*                                                                  *
-*    PROGRAMMER: Ethan Nelson                                      *
-*    COURSE: CS340 Program Language Design                         *
-*    DATE: 9/4/25                                                  *
-*    REQUIREMENT: Assignment number 3                              *
-*                                                                  *
-*    DESCRIPTION:                                                  *
-*    Command-Line Interface (CLI) for interacting with the Lang    *
-*    programming language. Provides an interactive REPL and file   *
-*    compilation that displays line numbers and tokenized output.   *
-*                                                                  *
-*    COPYRIGHT:                                                    *
-*    This code is copyright (c)2025 Ethan Nelson and Dean Zeller.  *
-*                                                                  *
-*    CREDITS:                                                      *
-*    ChatGPT                                                       *
-*                                                                  *
-*******************************************************************/
+/*********************************************************************************
+*        CLI for the Lang Programming Language (Assignment 3)                    *
+*                                                                                *
+*    PROGRAMMER: Andrew Olvera                                                   *
+*    COURSE: CS340 Program Language Design                                       *
+*    DATE: 10/7/25                                                               *
+*    REQUIREMENT: Assignment 3                                                   *
+*                                                                                *
+*    DESCRIPTION:                                                                *
+*    Command-Line Interface (CLI) for interacting with the Lang                  *
+*    programming language. Provides an interactive REPL and file                 *
+*    compilation that displays line numbers and tokenized output.                *
+*                                                                                *
+*    COPYRIGHT:                                                                  *
+*    This code is copyright (c)2025 Andrew Olvera, Ethan Nelson, and Dean Zeller.*
+*                                                                                *
+*    CREDITS:                                                                    *
+*    ChatGPT                                                                     *
+*                                                                                *
+*********************************************************************************/
 """
 
 import sys
