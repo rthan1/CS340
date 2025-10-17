@@ -1,7 +1,39 @@
+"""
+/*******************************************************************
+*                     CS340 Graphics - Still Image                  *
+*                                                                  *
+*    PROGRAMMER: Andrew Olvera                                      *
+*    COURSE: CS340 Program Language Design                         *
+*    DATE: 10/17/25                                                *
+*    REQUIREMENT: Assignment number 4 (Graphics)                   *
+*                                                                  *
+*    DESCRIPTION:                                                  *
+*    Builds a static scene in the Ursina engine matching the        *
+*    animation environment: ground, a path, repeating arches, and   *
+*    lanterns with lights. Positions the camera to the animation's  *
+*    starting frame for a consistent still image render.            *
+*                                                                  *
+*    COPYRIGHT:                                                    *
+*    This code is copyright (c)2025 Andrew Olvera and Dean Zeller. *
+*                                                                  *
+*    CREDITS:                                                      *
+*    cursor and GPT 5                                              *
+*                                                                  *
+*******************************************************************/
+"""
+
 from ursina import *
 
 
 def main():
+	"""
+	/**********************************************************
+	* METHOD: main                                            *
+	* DESCRIPTION: Construct static scene and run app         *
+	* PARAMETERS: None                                        *
+	* RETURN VALUE: None                                      *
+	**********************************************************/
+	"""
 	app = Ursina()
 	window.title = 'CS340 Still Image'
 	window.borderless = False

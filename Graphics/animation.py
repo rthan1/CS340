@@ -1,8 +1,41 @@
+"""
+/*******************************************************************
+*                CS340 Graphics - First-Person Animation            *
+*                                                                  *
+*    PROGRAMMER: Andrew Olvera                                      *
+*    COURSE: CS340 Program Language Design                         *
+*    DATE: 10/17/25                                                *
+*    REQUIREMENT: Assignment number 4 (Graphics)                   *
+*                                                                  *
+*    DESCRIPTION:                                                  *
+*    Generates a first-person cinematic walk-through using the      *
+*    Ursina engine. The scene includes ground, a tiled path,        *
+*    repeating arches, and swaying lanterns with dynamic lighting.  *
+*    The camera follows keyframed motion with subtle head-bob,      *
+*    finishing with a 360° spin before exiting.                     *
+*                                                                  *
+*    COPYRIGHT:                                                    *
+*    This code is copyright (c)2025 Andrew Olvera and Dean Zeller. *
+*                                                                  *
+*    CREDITS:                                                      *
+*    cursor and GPT 5                                              *
+*                                                                  *
+*******************************************************************/
+"""
+
 from ursina import *
 import math
 
 
 class HeadBob:
+	"""
+	Simple head-bobbing helper for first-person camera motion.
+
+	Parameters:
+	- camera_entity (Entity): Camera to animate on the y-axis
+	- amplitude (float): Vertical bob amplitude in world units
+	- frequency (float): Bobbing frequency in Hz-like units
+	"""
 	def __init__(self, camera_entity: Entity, amplitude: float = 0.03, frequency: float = 9.0):
 		self.camera = camera_entity
 		self.amplitude = amplitude
@@ -10,6 +43,14 @@ class HeadBob:
 		self.phase = 0.0
 
 	def update(self, moving: bool, dt: float):
+		"""
+		/**********************************************************
+		* METHOD: update                                          *
+		* DESCRIPTION: Advance bobbing phase and apply y-offset   *
+		* PARAMETERS: moving (bool), dt (float)                   *
+		* RETURN VALUE: None                                      *
+		**********************************************************/
+		"""
 		if moving:
 			self.phase += self.frequency * dt
 			self.camera.y = 1.8 + math.sin(self.phase) * self.amplitude
@@ -19,6 +60,14 @@ class HeadBob:
 
 
 def main():
+	"""
+	/**********************************************************
+	* METHOD: main                                            *
+	* DESCRIPTION: Build scene, animate camera, run app       *
+	* PARAMETERS: None                                        *
+	* RETURN VALUE: None                                      *
+	**********************************************************/
+	"""
 	app = Ursina()
 	window.title = 'CS340 First-Person Animation'
 	window.borderless = False
@@ -86,6 +135,7 @@ def main():
 	]
 
 	def sample_track(time_s: float):
+		"""Interpolate between keyframes returning (position, yaw)."""
 		if time_s <= keyframes[0]['t']:
 			return keyframes[0]['pos'], keyframes[0]['yaw']
 		if time_s >= keyframes[-1]['t']:
