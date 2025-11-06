@@ -152,6 +152,7 @@ class CodeRunner(QWidget):
         return container
 
     def execute_line(self):
+        self.output_box.clear()
         """
         Execute the current line where the cursor is positioned
         """
@@ -170,6 +171,7 @@ class CodeRunner(QWidget):
         self.output_box.append("")
 
     def compile_code(self):
+        self.output_box.clear()
         """
         Compile all lines in the code editor using the Interpreter
         """
