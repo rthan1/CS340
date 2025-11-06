@@ -1,0 +1,6 @@
+SUM = 0;
+for I goes from 1 to 10
+SUM = SUM + I;
+print(I);
+
+

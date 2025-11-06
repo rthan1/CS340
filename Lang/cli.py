@@ -23,7 +23,7 @@
 
 import sys
 import os
-from Tokenizer import Tokenizer
+from Interpreter import Interpreter
 
 
 def print_banner():
@@ -46,7 +46,7 @@ def print_banner():
     print()
 
 
-def execute_line(line):
+def execute_line(interpreter: Interpreter, line: str):
     """
     /**********************************************************
     * METHOD: execute_line                                    *
@@ -55,8 +55,10 @@ def execute_line(line):
     * RETURN VALUE: None                                      *
     **********************************************************/
     """
-    print(f"[EXECUTING] {line}")
-    print(f"Output: {line}")
+    line_no, display_lines, _ = interpreter.process_line(line)
+    print(f"{line_no}. {line}")
+    for msg in display_lines:
+        print(msg)
     print()
 
 
@@ -75,38 +77,35 @@ def compile_file(filename):
     
     print(f"\n[COMPILING] {filename}")
     print("-" * 60)
-    
     try:
-        with open(filename, 'r') as file:
-            lines = file.readlines()
-        
-        for line_num, line in enumerate(lines, start=1):
-            # Remove trailing newline for display
-            line_content = line.rstrip('\n')
-            print(f"Line {line_num:3d}: {line_content}")
-            
-            # Tokenize the line
-            tokens = Tokenizer.tokenize_line(line_content)
-            
-            # Add eol token
-            if tokens:
-                tokens_with_eol = tokens + ['eol']
-            else:
-                tokens_with_eol = ['eol']
-            
-            # Format and print tokens
-            formatted_tokens = Tokenizer.format_tokens(tokens_with_eol)
-            print(f"         {formatted_tokens}")
-        
-        # Print eof token at the end
-        print("         eof")
-        
+        interpreter = Interpreter()
+        result = interpreter.compile_file(filename)
+
+        # Per-line output
+        for line_no, original, display_lines in result['per_line']:
+            print(f"{line_no}. {original}")
+            for msg in display_lines:
+                print(msg)
+
+        # Tables
+        print("Symbol Table")
+        for code, name in result['symbol_table']:
+            print(f"{code} {name}")
+        print("Literal Table")
+        for code, value in result['literal_table']:
+            print(f"{code} {value}")
+        # Program codes
+        print("Program Codes")
+        codes = result['program_codes']
+        for i in range(0, len(codes), 10):
+            chunk = codes[i:i+10]
+            print(" ".join(str(c) for c in chunk))
+
         print("-" * 60)
-        print(f"[COMPILATION COMPLETE] Processed {len(lines)} line(s)")
+        print(f"[COMPILATION COMPLETE] Processed {len(result['per_line'])} line(s)")
         print()
-        
     except Exception as e:
-        print(f"Error reading file: {e}")
+        print(f"Error: {e}")
 
 
 def interactive_mode():
@@ -119,6 +118,7 @@ def interactive_mode():
     **********************************************************/
     """
     print_banner()
+    interpreter = Interpreter()
     
     while True:
         try:
@@ -138,9 +138,12 @@ def interactive_mode():
             if user_input.lower().startswith('compile '):
                 filename = user_input[8:].strip()
                 compile_file(filename)
+            elif user_input.lower() == 'reset':
+                interpreter.reset_session()
+                print("Session reset. Tables cleared.\n")
             else:
                 # Execute the line
-                execute_line(user_input)
+                execute_line(interpreter, user_input)
                 
         except KeyboardInterrupt:
             print("\n\nKeyboardInterrupt detected. Exiting...")

@@ -31,13 +31,14 @@ from PyQt6.QtCore import Qt
 
 # Add parent directory to path to import from Lang
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'Lang'))
-from Tokenizer import Tokenizer
+from Interpreter import Interpreter
 
 class CodeRunner(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Lang Programming Language - Interactive IDE")
         self.setGeometry(100, 100, 1000, 600)
+        self.interpreter = Interpreter()
         self.init_ui()
 
     def init_ui(self):
@@ -153,7 +154,6 @@ class CodeRunner(QWidget):
     def execute_line(self):
         """
         Execute the current line where the cursor is positioned
-        (Assignment 3: Just echoes back the line)
         """
         cursor = self.code_editor.textCursor()
         cursor.select(cursor.SelectionType.LineUnderCursor)
@@ -163,14 +163,15 @@ class CodeRunner(QWidget):
             self.output_box.append("No line to execute.\n")
             return
         
-        self.output_box.append(f"[EXECUTING] {line}")
-        self.output_box.append(f"Output: {line}")
+        line_no, display_lines, _ = self.interpreter.process_line(line)
+        self.output_box.append(f"{line_no}. {line}")
+        for msg in display_lines:
+            self.output_box.append(msg)
         self.output_box.append("")
 
     def compile_code(self):
         """
-        Compile all lines in the code editor
-        (Assignment 3: Display with line numbers and tokenization)
+        Compile all lines in the code editor using the Interpreter
         """
         code = self.code_editor.toPlainText()
         
@@ -178,37 +179,34 @@ class CodeRunner(QWidget):
             self.output_box.append("No code to compile.\n")
             return
         
-        lines = code.split('\n')
-        
         self.output_box.append("[COMPILING] All Code")
         self.output_box.append("-" * 60)
-        
-        for line_num, line in enumerate(lines, start=1):
-            self.output_box.append(f"Line {line_num:3d}: {line}")
-            
-            # Tokenize the line
-            tokens = Tokenizer.tokenize_line(line)
-            
-            # Add eol token
-            if tokens:
-                tokens_with_eol = tokens + ['eol']
-            else:
-                tokens_with_eol = ['eol']
-            
-            # Format and print tokens
-            formatted_tokens = Tokenizer.format_tokens(tokens_with_eol)
-            self.output_box.append(f"         {formatted_tokens}")
-        
-        # Print eof token at the end
-        self.output_box.append("         eof")
-        
+        result = self.interpreter.compile_source(code)
+        for line_no, original, display_lines in result['per_line']:
+            self.output_box.append(f"{line_no}. {original}")
+            for msg in display_lines:
+                self.output_box.append(msg)
+
+        # Tables
+        self.output_box.append("Symbol Table")
+        for code_val, name in result['symbol_table']:
+            self.output_box.append(f"{code_val} {name}")
+        self.output_box.append("Literal Table")
+        for code_val, value in result['literal_table']:
+            self.output_box.append(f"{code_val} {value}")
+        self.output_box.append("Program Codes")
+        codes = result['program_codes']
+        for i in range(0, len(codes), 10):
+            chunk = codes[i:i+10]
+            self.output_box.append(" ".join(str(c) for c in chunk))
+
         self.output_box.append("-" * 60)
-        self.output_box.append(f"[COMPILATION COMPLETE] Processed {len(lines)} line(s)")
+        self.output_box.append(f"[COMPILATION COMPLETE] Processed {len(result['per_line'])} line(s)")
         self.output_box.append("")
 
     def load_file(self):
         """
-        Load a file into the code editor and compile it with tokenization
+        Load a file into the code editor and compile it via Interpreter
         """
         file_path, _ = QFileDialog.getOpenFileName(
             self,
@@ -225,33 +223,27 @@ class CodeRunner(QWidget):
                 self.code_editor.setPlainText(content)
                 
                 # Automatically compile the loaded file
-                lines = content.split('\n')
-                
+                result = self.interpreter.compile_source(content)
                 self.output_box.append(f"[LOADED FILE] {os.path.basename(file_path)}")
                 self.output_box.append(f"[COMPILING] {os.path.basename(file_path)}")
                 self.output_box.append("-" * 60)
-                
-                for line_num, line in enumerate(lines, start=1):
-                    self.output_box.append(f"Line {line_num:3d}: {line}")
-                    
-                    # Tokenize the line
-                    tokens = Tokenizer.tokenize_line(line)
-                    
-                    # Add eol token
-                    if tokens:
-                        tokens_with_eol = tokens + ['eol']
-                    else:
-                        tokens_with_eol = ['eol']
-                    
-                    # Format and print tokens
-                    formatted_tokens = Tokenizer.format_tokens(tokens_with_eol)
-                    self.output_box.append(f"         {formatted_tokens}")
-                
-                # Print eof token at the end
-                self.output_box.append("         eof")
-                
+                for line_no, original, display_lines in result['per_line']:
+                    self.output_box.append(f"{line_no}. {original}")
+                    for msg in display_lines:
+                        self.output_box.append(msg)
+                self.output_box.append("Symbol Table")
+                for code_val, name in result['symbol_table']:
+                    self.output_box.append(f"{code_val} {name}")
+                self.output_box.append("Literal Table")
+                for code_val, value in result['literal_table']:
+                    self.output_box.append(f"{code_val} {value}")
+                self.output_box.append("Program Codes")
+                codes = result['program_codes']
+                for i in range(0, len(codes), 10):
+                    chunk = codes[i:i+10]
+                    self.output_box.append(" ".join(str(c) for c in chunk))
                 self.output_box.append("-" * 60)
-                self.output_box.append(f"[COMPILATION COMPLETE] Processed {len(lines)} line(s)")
+                self.output_box.append(f"[COMPILATION COMPLETE] Processed {len(result['per_line'])} line(s)")
                 self.output_box.append("")
                 
             except Exception as e:
