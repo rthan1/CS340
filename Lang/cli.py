@@ -41,6 +41,8 @@ def print_banner():
     print("Commands:")
     print("  - Type any code to execute it")
     print("  - Type 'compile <filename>' to compile a file")
+    print("  - Type 'verbose on|off' to toggle verbose trace")
+    print("  - Type 'reset' to clear tables/state")
     print("  - Type 'exit' or 'quit' to exit")
     print("=" * 60)
     print()
@@ -108,7 +110,7 @@ def compile_file(filename):
         print(f"Error: {e}")
 
 
-def interactive_mode():
+def interactive_mode(verbose_default: bool = False):
     """
     /**********************************************************
     * METHOD: interactive_mode                                *
@@ -118,7 +120,8 @@ def interactive_mode():
     **********************************************************/
     """
     print_banner()
-    interpreter = Interpreter()
+    interpreter = Interpreter(verbose=verbose_default)
+    verbose = bool(verbose_default)
     
     while True:
         try:
@@ -141,6 +144,15 @@ def interactive_mode():
             elif user_input.lower() == 'reset':
                 interpreter.reset_session()
                 print("Session reset. Tables cleared.\n")
+            elif user_input.lower().startswith('verbose '):
+                _, _, val = user_input.partition(' ')
+                val = val.strip().lower()
+                if val in ['on', 'off']:
+                    verbose = (val == 'on')
+                    interpreter.set_verbose(verbose)
+                    print(f"Verbose {'enabled' if verbose else 'disabled'}.\n")
+                else:
+                    print("Usage: verbose on|off\n")
             else:
                 # Execute the line
                 execute_line(interpreter, user_input)
@@ -156,7 +168,7 @@ def interactive_mode():
             print()
 
 
-def main():
+def main(verbose_default: bool = False):
     """
     /**********************************************************
     * METHOD: main                                            *
@@ -165,13 +177,19 @@ def main():
     * RETURN VALUE: None                                      *
     **********************************************************/
     """
-    if len(sys.argv) > 1:
+    # Flags: --verbose enables verbose by default in REPL
+    args = sys.argv[1:]
+    if args and args[0] == '--verbose':
+        verbose_default = True
+        args = args[1:]
+
+    if args:
         # File mode - compile the specified file
-        filename = sys.argv[1]
+        filename = args[0]
         compile_file(filename)
     else:
         # Interactive mode
-        interactive_mode()
+        interactive_mode(verbose_default=verbose_default)
 
 
 if __name__ == "__main__":

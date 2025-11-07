@@ -22,7 +22,7 @@
 *******************************************************************/
 """
 
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Optional
 
 from Tokenizer import Tokenizer
 from Encoder import Encoder
@@ -34,7 +34,7 @@ class Interpreter:
     high-level processing methods for CLI/IDE.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, verbose: bool = False) -> None:
         """
         /**********************************************************
         * METHOD: __init__                                        *
@@ -46,6 +46,8 @@ class Interpreter:
         self.tokenizer = Tokenizer()
         self.encoder = Encoder()
         self._interactive_line_no = 0
+        self.verbose: bool = verbose
+        self.variables: Dict[str, int] = {}
 
     def reset_session(self) -> None:
         """
@@ -58,6 +60,10 @@ class Interpreter:
         """
         self.encoder.reset()
         self._interactive_line_no = 0
+        self.variables.clear()
+
+    def set_verbose(self, verbose: bool) -> None:
+        self.verbose = verbose
 
     def process_line(self, line: str) -> Tuple[int, List[str], List[int]]:
         """
@@ -70,27 +76,162 @@ class Interpreter:
         **********************************************************/
         """
         self._interactive_line_no += 1
+        # Tokenize (Tokenizer already removes trailing comments with '#')
         tokens = Tokenizer.tokenize_line(line)
-        encoded = self.encoder.encode_tokens(tokens)
+
+        # Verbose: show tokens as typed (without virtual terminator)
         display_lines: List[str] = []
-        line_codes: List[int] = []
+        if self.verbose and tokens:
+            display_lines.append("Tokens: " + " ".join(tokens))
+
+        # Encode tokens for IDs and tables
+        encoded = self.encoder.encode_tokens(tokens)
+
+        # Track new table entries in verbose mode
         for item in encoded:
             kind = str(item['kind'])
             lex = str(item['lexeme'])
             code = int(item['code'])
             is_new = bool(item['is_new'])
-            if kind == 'Keyword':
-                display_lines.append(f"Keyword: {lex} id {code}")
-            elif kind == 'Operation':
-                display_lines.append(f"Operation: {lex} id {code}")
-            elif kind == 'Symbol':
-                suffix = " new symbol" if is_new else ""
-                display_lines.append(f"Symbol: {lex} id {code}{suffix}")
-            elif kind == 'Literal':
-                suffix = " new literal" if is_new else ""
-                display_lines.append(f"Literal: {lex} id {code}{suffix}")
-            line_codes.append(code)
+            if not self.verbose:
+                continue
+            if kind == 'Symbol' and is_new:
+                display_lines.append(f"Adding {lex} to symbol table with id {code}")
+            if kind == 'Literal' and is_new:
+                display_lines.append(f"Adding {lex} to literal table with id {code}")
+
+        # Build TokenIDs, appending virtual ';' (203) if needed
+        line_codes: List[int] = [int(item['code']) for item in encoded]
+        has_semicolon = bool(tokens) and tokens[-1] == ';'
+        if not has_semicolon and tokens:
+            # Append virtual semicolon code to line IDs and program stream
+            VIRTUAL_SEMI_CODE = 203
+            line_codes.append(VIRTUAL_SEMI_CODE)
+            # Also record in program code stream to mirror execution
+            self.encoder.program_codes.append(VIRTUAL_SEMI_CODE)
+
+        if self.verbose and line_codes:
+            display_lines.append("TokenIDs: " + " ".join(str(c) for c in line_codes))
+
+        # Drive CONO table and execute semantics
+        code_generators_called: List[str] = []
+        try:
+            code_generators_called = self._execute_cono_and_run(tokens, has_semicolon)
+        except Exception as exec_err:
+            raise exec_err
+
+        if self.verbose and code_generators_called:
+            display_lines.append("Code generators called: " + " ".join(code_generators_called))
+
         return self._interactive_line_no, display_lines, line_codes
+
+    def _execute_cono_and_run(self, tokens: List[str], has_semicolon: bool) -> List[str]:
+        if not tokens:
+            return []
+
+        # Build op sequence (keywords and operators only)
+        OPS = {"integer", "input", "print", "=", "(", ")", ";"}
+        op_seq: List[str] = [t for t in tokens if t in OPS]
+        if not has_semicolon and op_seq and op_seq[-1] != ';':
+            op_seq.append(';')
+
+        # CONO mapping
+        CONO: Dict[Tuple[str, str], str] = {
+            ("integer", "="): "start_define",
+            ("integer", ";"): "end_define",
+            ("input", "("): "start_input",
+            ("print", "("): "start_print",
+            ("(", ")"): "end_paren",
+            (")", ";"): "no_op",
+        }
+
+        generators_called: List[str] = []
+        for i in range(len(op_seq) - 1):
+            pair = (op_seq[i], op_seq[i + 1])
+            gen = CONO.get(pair)
+            if gen is None:
+                raise Exception(f"Syntax error: invalid token pair {pair}")
+            generators_called.append(gen)
+
+        # Execute semantics based on the first keyword
+        first_op: Optional[str] = next((t for t in op_seq if t in {"integer", "input", "print"}), None)
+        if first_op == "integer":
+            self._exec_declaration(tokens)
+        elif first_op == "input":
+            self._exec_input(tokens)
+        elif first_op == "print":
+            self._exec_print(tokens)
+        else:
+            # Empty or comment-only line
+            pass
+
+        return generators_called
+
+    def _expect_identifier_after(self, tokens: List[str], keyword_index: int) -> str:
+        if keyword_index + 1 >= len(tokens):
+            raise Exception("Syntax error: expected identifier")
+        ident = tokens[keyword_index + 1]
+        if ident in {"integer", "input", "print", "=", "(", ")", ";"}:
+            raise Exception("Syntax error: expected identifier")
+        return ident
+
+    def _exec_declaration(self, tokens: List[str]) -> None:
+        # Pattern: integer IDENT ; | integer IDENT = INT ;
+        try:
+            k = tokens.index("integer")
+        except ValueError:
+            raise Exception("Syntax error in declaration")
+        ident = self._expect_identifier_after(tokens, k)
+
+        value: int = 0
+        if '=' in tokens:
+            eq_index = tokens.index('=')
+            if eq_index + 1 >= len(tokens):
+                raise Exception("Syntax error: expected initializer after '='")
+            lit = tokens[eq_index + 1]
+            if not lit.isdigit():
+                raise Exception("Syntax error: initializer must be integer literal")
+            value = int(lit)
+        self.variables[ident] = value
+
+    def _exec_input(self, tokens: List[str]) -> None:
+        # Pattern: input ( IDENT ) ;
+        try:
+            lpar = tokens.index('(')
+            rpar = tokens.index(')')
+        except ValueError:
+            raise Exception("Syntax error: input requires parentheses")
+        if rpar - lpar != 2:
+            raise Exception("Syntax error: input takes exactly one identifier")
+        ident = tokens[lpar + 1]
+        if ident in {"integer", "input", "print", "=", "(", ")", ";"}:
+            raise Exception("Syntax error: expected identifier in input")
+        if ident not in self.variables:
+            raise Exception(f"Runtime error: variable '{ident}' is not declared")
+        try:
+            user_val_str = input("=> ")
+            user_val = int(user_val_str.strip())
+        except Exception:
+            raise Exception("Runtime error: input must be an integer")
+        self.variables[ident] = user_val
+
+    def _exec_print(self, tokens: List[str]) -> None:
+        # Pattern: print ( IDENT | INT ) ;
+        try:
+            lpar = tokens.index('(')
+            rpar = tokens.index(')')
+        except ValueError:
+            raise Exception("Syntax error: print requires parentheses")
+        if rpar - lpar != 2:
+            raise Exception("Syntax error: print takes exactly one operand")
+        operand = tokens[lpar + 1]
+        if operand.isdigit():
+            value = int(operand)
+        else:
+            if operand not in self.variables:
+                raise Exception(f"Runtime error: variable '{operand}' is not declared")
+            value = self.variables[operand]
+        print(value)
 
     def compile_source(self, source_text: str) -> Dict[str, object]:
         """

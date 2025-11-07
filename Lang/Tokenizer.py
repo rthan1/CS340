@@ -73,6 +73,10 @@ class Tokenizer:
         **********************************************************/
         """
         tokens = []
+        # Strip comments starting with '#'
+        hash_index = line.find('#')
+        if hash_index != -1:
+            line = line[:hash_index]
         line = line.strip()
         
         # Handle empty lines

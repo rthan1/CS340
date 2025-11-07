@@ -35,29 +35,22 @@ class Encoder:
     Maintains symbol and literal tables and the program code stream.
     """
 
-    # Explicit codes to match the provided example output
+    # Codes per assignment spec
     KEYWORD_CODES: Dict[str, int] = {
-        'if': 100,
-        'while': 103,
-        'for': 105,
-        'return': 106,
-        'goes': 107,
-        'from': 108,
-        'to': 113,
-        'print': 153,
+        'integer': 100,
+        'input': 101,
+        'print': 102,
     }
 
     OPERATOR_CODES: Dict[str, int] = {
-        ';': 201,
-        '=': 220,
-        '(': 235,
-        ')': 236,
-        '+': 248,
-        # Additional operators can be added here as needed
+        '=': 200,
+        '(': 201,
+        ')': 202,
+        ';': 203,
     }
 
-    SYMBOL_START_CODE: int = 300
-    LITERAL_START_CODE: int = 700
+    SYMBOL_START_CODE: int = 600
+    LITERAL_START_CODE: int = 900
 
     def __init__(self) -> None:
         """

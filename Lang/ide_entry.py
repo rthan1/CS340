@@ -23,4 +23,5 @@
 from cli import main
 
 if __name__ == "__main__":
-    main()
+    # Default verbose tracing ON when launched from IDE
+    main(verbose_default=True)
