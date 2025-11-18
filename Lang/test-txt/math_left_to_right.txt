@@ -1,0 +1,15 @@
+integer x = 5;
+integer y = 10;
+integer z = 2;
+integer r;
+
+r = x + 1 * 2 / 3;
+print(r);
+
+r = x + y * z;
+print(r);
+
+r = x + y / z;
+print(r);
+
+

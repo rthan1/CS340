@@ -3,3 +3,4 @@
 /Lang/__pycache__
 /Lang/__pycache__
 .idea/
+*.pyc

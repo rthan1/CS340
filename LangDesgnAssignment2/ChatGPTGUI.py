@@ -38,7 +38,8 @@ class CodeRunner(QWidget):
         super().__init__()
         self.setWindowTitle("Lang Programming Language - Interactive IDE")
         self.setGeometry(100, 100, 1000, 600)
-        self.interpreter = Interpreter()
+        # Enable verbose mode so tokens, code generators, and console outputs are shown
+        self.interpreter = Interpreter(verbose=True)
         self.init_ui()
 
     def init_ui(self):
@@ -151,6 +152,50 @@ class CodeRunner(QWidget):
         layout.addWidget(widget)
         return container
 
+    def _execute_all_text(self, code: str, header: str):
+        """
+        Execute all non-empty lines of the given code text using the Interpreter.
+        Uses the same semantics as 'Execute Line', including verbose output and
+        console outputs from print statements.
+        """
+        self.output_box.append(header)
+        self.output_box.append("-" * 60)
+
+        # Start a fresh session for the batch execution
+        self.interpreter.reset_session()
+
+        processed = 0
+        all_outputs: list[int] = []
+        lines = code.split('\n')
+        for original in lines:
+            line = original.strip()
+            if not line:
+                continue
+            processed += 1
+            try:
+                line_no, display_lines, _, print_outputs = self.interpreter.process_line(line)
+                self.output_box.append(f"{line_no}. {line}")
+                for msg in display_lines:
+                    self.output_box.append(msg)
+                self.output_box.append("")
+                all_outputs.extend(print_outputs)
+            except Exception as e:
+                self.output_box.append(f"Error on line {line_no}: {e}")
+                self.output_box.append("")
+                break
+
+        self.output_box.append("-" * 60)
+        self.output_box.append(f"[EXECUTION COMPLETE] Processed {processed} line(s)")
+
+        # After the verbose trace, show a [console] section with the plain
+        # program output in execution order.
+        if all_outputs:
+            self.output_box.append("[console]")
+            for val in all_outputs:
+                self.output_box.append(str(val))
+
+        self.output_box.append("")
+
     def execute_line(self):
         self.output_box.clear()
         """
@@ -164,10 +209,16 @@ class CodeRunner(QWidget):
             self.output_box.append("No line to execute.\n")
             return
         
-        line_no, display_lines, _ = self.interpreter.process_line(line)
+        line_no, display_lines, _, print_outputs = self.interpreter.process_line(line)
         self.output_box.append(f"{line_no}. {line}")
         for msg in display_lines:
             self.output_box.append(msg)
+
+        if print_outputs:
+            self.output_box.append("[console]")
+            for val in print_outputs:
+                self.output_box.append(str(val))
+
         self.output_box.append("")
 
     def compile_code(self):
@@ -180,31 +231,8 @@ class CodeRunner(QWidget):
         if not code.strip():
             self.output_box.append("No code to compile.\n")
             return
-        
-        self.output_box.append("[COMPILING] All Code")
-        self.output_box.append("-" * 60)
-        result = self.interpreter.compile_source(code)
-        for line_no, original, display_lines in result['per_line']:
-            self.output_box.append(f"{line_no}. {original}")
-            for msg in display_lines:
-                self.output_box.append(msg)
-
-        # Tables
-        self.output_box.append("Symbol Table")
-        for code_val, name in result['symbol_table']:
-            self.output_box.append(f"{code_val} {name}")
-        self.output_box.append("Literal Table")
-        for code_val, value in result['literal_table']:
-            self.output_box.append(f"{code_val} {value}")
-        self.output_box.append("Program Codes")
-        codes = result['program_codes']
-        for i in range(0, len(codes), 10):
-            chunk = codes[i:i+10]
-            self.output_box.append(" ".join(str(c) for c in chunk))
-
-        self.output_box.append("-" * 60)
-        self.output_box.append(f"[COMPILATION COMPLETE] Processed {len(result['per_line'])} line(s)")
-        self.output_box.append("")
+        # Use the same execution/verbose path as Execute Line, but for all lines
+        self._execute_all_text(code, "[EXECUTING] All Code")
 
     def load_file(self):
         """
@@ -223,30 +251,10 @@ class CodeRunner(QWidget):
                     content = file.read()
                 
                 self.code_editor.setPlainText(content)
-                
-                # Automatically compile the loaded file
-                result = self.interpreter.compile_source(content)
+                # Execute the loaded file using the same path as Compile All
+                self.output_box.clear()
                 self.output_box.append(f"[LOADED FILE] {os.path.basename(file_path)}")
-                self.output_box.append(f"[COMPILING] {os.path.basename(file_path)}")
-                self.output_box.append("-" * 60)
-                for line_no, original, display_lines in result['per_line']:
-                    self.output_box.append(f"{line_no}. {original}")
-                    for msg in display_lines:
-                        self.output_box.append(msg)
-                self.output_box.append("Symbol Table")
-                for code_val, name in result['symbol_table']:
-                    self.output_box.append(f"{code_val} {name}")
-                self.output_box.append("Literal Table")
-                for code_val, value in result['literal_table']:
-                    self.output_box.append(f"{code_val} {value}")
-                self.output_box.append("Program Codes")
-                codes = result['program_codes']
-                for i in range(0, len(codes), 10):
-                    chunk = codes[i:i+10]
-                    self.output_box.append(" ".join(str(c) for c in chunk))
-                self.output_box.append("-" * 60)
-                self.output_box.append(f"[COMPILATION COMPLETE] Processed {len(result['per_line'])} line(s)")
-                self.output_box.append("")
+                self._execute_all_text(content, "[EXECUTING] Loaded Code")
                 
             except Exception as e:
                 self.output_box.append(f"Error loading file: {e}\n")

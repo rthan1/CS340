@@ -1,0 +1,15 @@
+integer a = 15;
+integer b = 20;
+integer c = 24;
+print(a);
+print(b);
+print(c);
+integer sum;
+integer average;
+integer product;
+sum = a + b + c;
+average = sum / 3;
+product = a * b * c;
+print(average);
+print(product);
+

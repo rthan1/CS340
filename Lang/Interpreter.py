@@ -65,7 +65,7 @@ class Interpreter:
     def set_verbose(self, verbose: bool) -> None:
         self.verbose = verbose
 
-    def process_line(self, line: str) -> Tuple[int, List[str], List[int]]:
+    def process_line(self, line: str) -> Tuple[int, List[str], List[int], List[int]]:
         """
         /**********************************************************
         * METHOD: process_line                                    *
@@ -115,57 +115,170 @@ class Interpreter:
 
         # Drive CONO table and execute semantics
         code_generators_called: List[str] = []
+        print_outputs: List[int] = []
         try:
-            code_generators_called = self._execute_cono_and_run(tokens, has_semicolon)
+            code_generators_called, print_outputs = self._execute_cono_and_run(tokens, has_semicolon)
         except Exception as exec_err:
             raise exec_err
 
         if self.verbose and code_generators_called:
             display_lines.append("Code generators called: " + " ".join(code_generators_called))
 
-        return self._interactive_line_no, display_lines, line_codes
+        # In verbose mode we no longer inline console outputs here; callers can
+        # present a separate [console] section after all verbose traces.
 
-    def _execute_cono_and_run(self, tokens: List[str], has_semicolon: bool) -> List[str]:
+        return self._interactive_line_no, display_lines, line_codes, print_outputs
+
+    def _execute_cono_and_run(self, tokens: List[str], has_semicolon: bool) -> Tuple[List[str], List[int]]:
+        """
+        Drive a simplified CONO-style pass that both:
+          - builds a list of code generators for verbose output
+          - dispatches to the appropriate semantic executor
+
+        For this assignment we support:
+          - Declarations: integer x; / integer x = 10;
+          - Input:        input(x);
+          - Print:        print(x); or print(10);
+          - Assignments:  x = expression;
+          - Expressions:  expression;
+        """
         if not tokens:
-            return []
+            return [], []
 
-        # Build op sequence (keywords and operators only)
-        OPS = {"integer", "input", "print", "=", "(", ")", ";"}
-        op_seq: List[str] = [t for t in tokens if t in OPS]
-        if not has_semicolon and op_seq and op_seq[-1] != ';':
-            op_seq.append(';')
-
-        # CONO mapping
-        CONO: Dict[Tuple[str, str], str] = {
-            ("integer", "="): "start_define",
-            ("integer", ";"): "end_define",
-            ("input", "("): "start_input",
-            ("print", "("): "start_print",
-            ("(", ")"): "end_paren",
-            (")", ";"): "no_op",
-        }
+        # Ensure we have a terminating ';' token for semantic analysis
+        work_tokens = list(tokens)
+        if not has_semicolon and work_tokens and work_tokens[-1] != ';':
+            work_tokens.append(';')
 
         generators_called: List[str] = []
-        for i in range(len(op_seq) - 1):
-            pair = (op_seq[i], op_seq[i + 1])
-            gen = CONO.get(pair)
-            if gen is None:
-                raise Exception(f"Syntax error: invalid token pair {pair}")
-            generators_called.append(gen)
+        print_outputs: List[int] = []
 
-        # Execute semantics based on the first keyword
-        first_op: Optional[str] = next((t for t in op_seq if t in {"integer", "input", "print"}), None)
-        if first_op == "integer":
-            self._exec_declaration(tokens)
-        elif first_op == "input":
-            self._exec_input(tokens)
-        elif first_op == "print":
-            self._exec_print(tokens)
+        first_tok: Optional[str] = work_tokens[0] if work_tokens else None
+
+        if first_tok == "integer":
+            # Declaration: emit start/end define based on presence of '='
+            if '=' in work_tokens:
+                generators_called.extend(["start_define", "end_define"])
+            else:
+                generators_called.append("end_define")
+            self._exec_declaration(work_tokens)
+
+        elif first_tok == "input":
+            # Pattern: input ( IDENT ) ;
+            # Match the example: no_op start_input end_paren no_op
+            generators_called.extend(["no_op", "start_input", "end_paren", "no_op"])
+            self._exec_input(work_tokens)
+
+        elif first_tok == "print":
+            # Pattern: print ( IDENT | INT ) ;
+            generators_called.extend(["start_print", "end_paren", "no_op"])
+            val = self._exec_print(work_tokens)
+            print_outputs.append(val)
+
         else:
-            # Empty or comment-only line
-            pass
+            # Non-keyword statement: either an assignment "x = expr;"
+            # or a bare expression "expr;" whose value is discarded.
+            if '=' in work_tokens:
+                generators_called.append("assign")
+                self._exec_assignment(work_tokens)
+            else:
+                generators_called.append("evaluate")
+                self._exec_expression(work_tokens)
 
-        return generators_called
+        return generators_called, print_outputs
+
+    def _eval_pythonic_expr(self, expr_tokens: List[str]) -> int:
+        """
+        Evaluate an arithmetic expression using Python semantics, with small
+        adaptations to keep integers:
+          - '/' is treated as integer division by mapping to '//'
+          - '^' is treated as exponent by mapping to '**'
+        """
+        if not expr_tokens:
+            raise Exception("Syntax error: empty expression")
+
+        # Map Lang operators to Python operators
+        python_tokens: List[str] = []
+        for tok in expr_tokens:
+            if tok == '/':
+                python_tokens.append('//')
+            elif tok == '^':
+                python_tokens.append('**')
+            else:
+                python_tokens.append(tok)
+
+        expr_str = " ".join(python_tokens)
+
+        # Use only current variables as the evaluation environment
+        env = dict(self.variables)
+
+        try:
+            value = eval(expr_str, {"__builtins__": None}, env)
+        except ZeroDivisionError:
+            raise Exception("Runtime error: division by zero")
+        except NameError as e:
+            raise Exception(f"Runtime error: {e}")
+        except SyntaxError:
+            raise Exception("Syntax error: invalid expression")
+        except Exception as e:
+            raise Exception(f"Runtime error: invalid expression: {e}")
+
+        if not isinstance(value, int):
+            raise Exception("Runtime error: expression must evaluate to an integer")
+
+        return value
+
+    def _exec_assignment(self, tokens: List[str]) -> None:
+        """
+        Execute an assignment statement of the form:
+          IDENT = expression ;
+        """
+        if not tokens:
+            return
+
+        # Remove trailing ';' for analysis
+        core = tokens[:-1] if tokens[-1] == ';' else list(tokens)
+        if not core:
+            return
+
+        if '=' not in core:
+            raise Exception("Syntax error: assignment requires '='")
+
+        eq_index = core.index('=')
+        lhs_tokens = core[:eq_index]
+        rhs_tokens = core[eq_index + 1 :]
+
+        if len(lhs_tokens) != 1:
+            raise Exception("Syntax error: invalid assignment target")
+
+        name = lhs_tokens[0]
+
+        if name in {"integer", "input", "print", "=", "(", ")", ";"}:
+            raise Exception("Syntax error: invalid assignment target")
+
+        if name not in self.variables:
+            raise Exception(f"Runtime error: variable '{name}' is not declared")
+
+        if not rhs_tokens:
+            raise Exception("Syntax error: expected expression after '='")
+
+        value = self._eval_pythonic_expr(rhs_tokens)
+        self.variables[name] = value
+
+    def _exec_expression(self, tokens: List[str]) -> None:
+        """
+        Execute a bare expression statement of the form:
+          expression ;
+        The value is evaluated for errors and then discarded.
+        """
+        if not tokens:
+            return
+
+        core = tokens[:-1] if tokens[-1] == ';' else list(tokens)
+        if not core:
+            return
+
+        _ = self._eval_pythonic_expr(core)
 
     def _expect_identifier_after(self, tokens: List[str], keyword_index: int) -> str:
         if keyword_index + 1 >= len(tokens):
@@ -231,7 +344,7 @@ class Interpreter:
             if operand not in self.variables:
                 raise Exception(f"Runtime error: variable '{operand}' is not declared")
             value = self.variables[operand]
-        print(value)
+        return value
 
     def compile_source(self, source_text: str) -> Dict[str, object]:
         """

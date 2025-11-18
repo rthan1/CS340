@@ -1,0 +1,19 @@
+integer x = 10;
+integer y;
+
+# Undeclared variable in expression
+y = x + q;
+
+# Undeclared target variable
+q = x + 5;
+
+# Divide by zero
+y = x / 0;
+
+# Dangling operator
+y = x + ;
+
+# Empty expression on right-hand side
+y = ;
+
+

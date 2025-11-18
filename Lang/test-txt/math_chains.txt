@@ -1,0 +1,21 @@
+integer x = 5;
+integer y = 10;
+integer z = 0;
+integer w;
+
+# Update z and w using classical assignments
+z = x + y;
+print(z);
+
+w = z;
+print(w);
+
+# Reassign x, y, z using simple assignments
+x = 5;
+y = x;
+z = y;
+print(x);
+print(y);
+print(z);
+
+

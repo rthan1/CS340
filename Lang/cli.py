@@ -57,14 +57,26 @@ def execute_line(interpreter: Interpreter, line: str):
     * RETURN VALUE: None                                      *
     **********************************************************/
     """
-    line_no, display_lines, _ = interpreter.process_line(line)
+    line_no, display_lines, _, print_outputs = interpreter.process_line(line)
     print(f"{line_no}. {line}")
     for msg in display_lines:
         print(msg)
+
+    # In verbose mode, show a [console] section so users can see the actual
+    # program output separate from the trace. In non-verbose mode, just print
+    # the outputs like a normal interpreter.
+    if interpreter.verbose and print_outputs:
+        print("[console]")
+        for val in print_outputs:
+            print(val)
+    elif not interpreter.verbose:
+        for val in print_outputs:
+            print(val)
+
     print()
 
 
-def compile_file(filename):
+def compile_file(filename, verbose: bool = False):
     """
     /**********************************************************
     * METHOD: compile_file                                    *
@@ -77,34 +89,46 @@ def compile_file(filename):
         print(f"Error: File '{filename}' not found")
         return
     
-    print(f"\n[COMPILING] {filename}")
+    print(f"\n[EXECUTING] {filename}")
     print("-" * 60)
     try:
-        interpreter = Interpreter()
-        result = interpreter.compile_file(filename)
+        interpreter = Interpreter(verbose=verbose)
+        interpreter.reset_session()
 
-        # Per-line output
-        for line_no, original, display_lines in result['per_line']:
-            print(f"{line_no}. {original}")
-            for msg in display_lines:
-                print(msg)
+        processed = 0
+        all_outputs = []
 
-        # Tables
-        print("Symbol Table")
-        for code, name in result['symbol_table']:
-            print(f"{code} {name}")
-        print("Literal Table")
-        for code, value in result['literal_table']:
-            print(f"{code} {value}")
-        # Program codes
-        print("Program Codes")
-        codes = result['program_codes']
-        for i in range(0, len(codes), 10):
-            chunk = codes[i:i+10]
-            print(" ".join(str(c) for c in chunk))
+        with open(filename, 'r') as f:
+            for original in f:
+                line = original.rstrip('\n')
+                stripped = line.strip()
+                if not stripped:
+                    continue
+                processed += 1
+                try:
+                    line_no, display_lines, _, print_outputs = interpreter.process_line(stripped)
+                    if verbose:
+                        print(f"{line_no}. {stripped}")
+                        for msg in display_lines:
+                            print(msg)
+                        print()
+                    all_outputs.extend(print_outputs)
+                except Exception as e:
+                    print(f"Error on line {processed}: {e}")
+                    print()
+                    break
 
         print("-" * 60)
-        print(f"[COMPILATION COMPLETE] Processed {len(result['per_line'])} line(s)")
+        print(f"[EXECUTION COMPLETE] Processed {processed} line(s)")
+
+        if verbose and all_outputs:
+            print("[console]")
+            for val in all_outputs:
+                print(val)
+        elif not verbose:
+            for val in all_outputs:
+                print(val)
+
         print()
     except Exception as e:
         print(f"Error: {e}")
@@ -140,7 +164,7 @@ def interactive_mode(verbose_default: bool = False):
             # Check for compile command
             if user_input.lower().startswith('compile '):
                 filename = user_input[8:].strip()
-                compile_file(filename)
+                compile_file(filename, verbose=verbose)
             elif user_input.lower() == 'reset':
                 interpreter.reset_session()
                 print("Session reset. Tables cleared.\n")
@@ -184,9 +208,9 @@ def main(verbose_default: bool = False):
         args = args[1:]
 
     if args:
-        # File mode - compile the specified file
+        # File mode - execute the specified file
         filename = args[0]
-        compile_file(filename)
+        compile_file(filename, verbose=verbose_default)
     else:
         # Interactive mode
         interactive_mode(verbose_default=verbose_default)
