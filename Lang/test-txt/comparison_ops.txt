@@ -1,0 +1,28 @@
+# Test all comparison operators
+integer a = 10
+integer b = 20
+integer c = 10
+
+# Test <
+if (a < b):
+    print(1)
+
+# Test >
+if (b > a):
+    print(2)
+
+# Test ==
+if (a == c):
+    print(3)
+
+# Test !=
+if (a != b):
+    print(4)
+
+# Test <=
+if (a <= c):
+    print(5)
+
+# Test >=
+if (b >= a):
+    print(6)

@@ -1,0 +1,8 @@
+# Nested if inside while
+integer max = 0
+integer num = 5
+while (num > 0):
+    if (num > max):
+        max = num
+    num = num - 1
+print(max)

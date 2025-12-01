@@ -1,0 +1,68 @@
+# Lang Control Flow Demo - All Features
+# This program demonstrates if/elif/else and while statements
+
+# Example 1: Simple if statement
+integer a = 5
+integer b = 10
+if (a < b):
+    print(1)
+
+# Example 2: If-else
+integer x = 20
+integer y = 15
+if (x < y):
+    print(2)
+else:
+    print(3)
+
+# Example 3: If-elif-else chain
+integer score = 75
+integer result = 0
+if (score >= 90):
+    result = 90
+elif (score >= 80):
+    result = 80
+elif (score >= 70):
+    result = 70
+else:
+    result = 60
+print(result)
+
+# Example 4: While loop - sum from 1 to 5
+integer i = 1
+integer sum = 0
+while (i <= 5):
+    sum = sum + i
+    i = i + 1
+print(sum)
+
+# Example 5: While loop - countdown
+integer countdown = 3
+while (countdown > 0):
+    print(countdown)
+    countdown = countdown - 1
+
+# Example 6: Nested if inside while
+integer max = 0
+integer counter = 7
+while (counter > 0):
+    if (counter > max):
+        max = counter
+    counter = counter - 1
+print(max)
+
+# Example 7: All comparison operators
+integer test1 = 10
+integer test2 = 20
+if (test1 == 10):
+    print(100)
+if (test1 != test2):
+    print(200)
+if (test1 < test2):
+    print(300)
+if (test2 > test1):
+    print(400)
+if (test1 <= 10):
+    print(500)
+if (test2 >= 20):
+    print(600)

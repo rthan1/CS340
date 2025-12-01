@@ -95,39 +95,29 @@ def compile_file(filename, verbose: bool = False):
         interpreter = Interpreter(verbose=verbose)
         interpreter.reset_session()
 
-        processed = 0
-        all_outputs = []
-
         with open(filename, 'r') as f:
-            for original in f:
-                line = original.rstrip('\n')
-                stripped = line.strip()
-                if not stripped:
-                    continue
-                processed += 1
-                try:
-                    line_no, display_lines, _, print_outputs = interpreter.process_line(stripped)
-                    if verbose:
-                        print(f"{line_no}. {stripped}")
-                        for msg in display_lines:
-                            print(msg)
-                        print()
-                    all_outputs.extend(print_outputs)
-                except Exception as e:
-                    print(f"Error on line {processed}: {e}")
-                    print()
-                    break
+            source = f.read()
+        
+        # Use the new process_source_with_blocks method for control flow support
+        try:
+            display_lines, all_outputs = interpreter.process_source_with_blocks(source)
+            
+            if verbose:
+                for msg in display_lines:
+                    print(msg)
+            
+            print("-" * 60)
+            print(f"[EXECUTION COMPLETE]")
 
-        print("-" * 60)
-        print(f"[EXECUTION COMPLETE] Processed {processed} line(s)")
-
-        if verbose and all_outputs:
-            print("[console]")
-            for val in all_outputs:
-                print(val)
-        elif not verbose:
-            for val in all_outputs:
-                print(val)
+            if verbose and all_outputs:
+                print("[console]")
+                for val in all_outputs:
+                    print(val)
+            elif not verbose:
+                for val in all_outputs:
+                    print(val)
+        except Exception as e:
+            print(f"Error: {e}")
 
         print()
     except Exception as e:

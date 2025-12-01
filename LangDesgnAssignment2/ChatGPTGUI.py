@@ -155,8 +155,7 @@ class CodeRunner(QWidget):
     def _execute_all_text(self, code: str, header: str):
         """
         Execute all non-empty lines of the given code text using the Interpreter.
-        Uses the same semantics as 'Execute Line', including verbose output and
-        console outputs from print statements.
+        Uses the new process_source_with_blocks for control flow support.
         """
         self.output_box.append(header)
         self.output_box.append("-" * 60)
@@ -164,35 +163,23 @@ class CodeRunner(QWidget):
         # Start a fresh session for the batch execution
         self.interpreter.reset_session()
 
-        processed = 0
-        all_outputs: list[int] = []
-        lines = code.split('\n')
-        for original in lines:
-            line = original.strip()
-            if not line:
-                continue
-            processed += 1
-            try:
-                line_no, display_lines, _, print_outputs = self.interpreter.process_line(line)
-                self.output_box.append(f"{line_no}. {line}")
-                for msg in display_lines:
-                    self.output_box.append(msg)
-                self.output_box.append("")
-                all_outputs.extend(print_outputs)
-            except Exception as e:
-                self.output_box.append(f"Error on line {line_no}: {e}")
-                self.output_box.append("")
-                break
+        try:
+            display_lines, all_outputs = self.interpreter.process_source_with_blocks(code)
+            
+            for msg in display_lines:
+                self.output_box.append(msg)
 
-        self.output_box.append("-" * 60)
-        self.output_box.append(f"[EXECUTION COMPLETE] Processed {processed} line(s)")
+            self.output_box.append("-" * 60)
+            self.output_box.append(f"[EXECUTION COMPLETE]")
 
-        # After the verbose trace, show a [console] section with the plain
-        # program output in execution order.
-        if all_outputs:
-            self.output_box.append("[console]")
-            for val in all_outputs:
-                self.output_box.append(str(val))
+            # After the verbose trace, show a [console] section with the plain
+            # program output in execution order.
+            if all_outputs:
+                self.output_box.append("[console]")
+                for val in all_outputs:
+                    self.output_box.append(str(val))
+        except Exception as e:
+            self.output_box.append(f"Error: {e}")
 
         self.output_box.append("")
 

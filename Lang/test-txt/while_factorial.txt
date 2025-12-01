@@ -1,0 +1,8 @@
+# Factorial calculation using while
+integer result = 1
+integer n = 5
+integer i = 1
+while (i <= n):
+    result = result * i
+    i = i + 1
+print(result)

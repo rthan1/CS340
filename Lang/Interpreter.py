@@ -48,6 +48,10 @@ class Interpreter:
         self._interactive_line_no = 0
         self.verbose: bool = verbose
         self.variables: Dict[str, int] = {}
+        # Track multi-line blocks for indentation-based parsing
+        self.in_block: bool = False
+        self.block_lines: List[Tuple[str, int]] = []  # (line_text, indent_level)
+        self.base_indent: int = 0
 
     def reset_session(self) -> None:
         """
@@ -61,6 +65,9 @@ class Interpreter:
         self.encoder.reset()
         self._interactive_line_no = 0
         self.variables.clear()
+        self.in_block = False
+        self.block_lines.clear()
+        self.base_indent = 0
 
     def set_verbose(self, verbose: bool) -> None:
         self.verbose = verbose
@@ -128,6 +135,322 @@ class Interpreter:
         # present a separate [console] section after all verbose traces.
 
         return self._interactive_line_no, display_lines, line_codes, print_outputs
+
+    def _get_indent_level(self, line: str) -> int:
+        """
+        Get the indentation level (number of leading spaces or tabs*4)
+        """
+        indent = 0
+        for ch in line:
+            if ch == ' ':
+                indent += 1
+            elif ch == '\t':
+                indent += 4
+            else:
+                break
+        return indent
+
+    def _eval_condition(self, tokens: List[str]) -> bool:
+        """
+        Evaluate a boolean condition with comparison operators.
+        Expected format: expr1 op expr2
+        where op is one of: ==, !=, <, >, <=, >=
+        """
+        # Find the comparison operator
+        comp_ops = ['==', '!=', '<=', '>=', '<', '>']
+        op_index = -1
+        op = None
+        
+        for i, tok in enumerate(tokens):
+            if tok in comp_ops:
+                op_index = i
+                op = tok
+                break
+        
+        if op_index == -1:
+            raise Exception("Syntax error: condition must contain comparison operator")
+        
+        # Split into left and right expressions
+        left_tokens = tokens[:op_index]
+        right_tokens = tokens[op_index + 1:]
+        
+        if not left_tokens or not right_tokens:
+            raise Exception("Syntax error: invalid condition")
+        
+        # Evaluate both sides
+        left_val = self._eval_pythonic_expr(left_tokens)
+        right_val = self._eval_pythonic_expr(right_tokens)
+        
+        # Apply comparison
+        if op == '==':
+            return left_val == right_val
+        elif op == '!=':
+            return left_val != right_val
+        elif op == '<':
+            return left_val < right_val
+        elif op == '>':
+            return left_val > right_val
+        elif op == '<=':
+            return left_val <= right_val
+        elif op == '>=':
+            return left_val >= right_val
+        else:
+            raise Exception(f"Unknown comparison operator: {op}")
+
+    def _execute_block(self, lines: List[str]) -> Tuple[List[str], List[int]]:
+        """
+        Execute a block of statements (indented lines).
+        Returns (code_generators, print_outputs)
+        """
+        all_generators: List[str] = []
+        all_outputs: List[int] = []
+        
+        for line in lines:
+            stripped = line.strip()
+            if not stripped:
+                continue
+            
+            tokens = Tokenizer.tokenize_line(stripped)
+            if not tokens:
+                continue
+            
+            # Encode for tables
+            self.encoder.encode_tokens(tokens)
+            
+            # Check if this is a control flow statement
+            first_tok = tokens[0] if tokens else None
+            
+            if first_tok in ['if', 'while']:
+                # Recursive control flow - need to parse nested block
+                gens, outs = self._handle_control_flow_statement(line, lines)
+                all_generators.extend(gens)
+                all_outputs.extend(outs)
+            else:
+                # Regular statement
+                has_semi = tokens[-1] == ';' if tokens else False
+                if not has_semi:
+                    tokens.append(';')
+                gens, outs = self._execute_cono_and_run(tokens, has_semi)
+                all_generators.extend(gens)
+                all_outputs.extend(outs)
+        
+        return all_generators, all_outputs
+
+    def _parse_indented_block_from_lines(self, lines: List[str], start_idx: int, base_indent: int) -> Tuple[List[str], int]:
+        """
+        Parse an indented block starting at start_idx.
+        Returns (block_lines, end_idx)
+        """
+        block: List[str] = []
+        i = start_idx
+        
+        while i < len(lines):
+            line = lines[i]
+            stripped = line.strip()
+            
+            # Skip empty lines
+            if not stripped:
+                i += 1
+                continue
+            
+            indent = self._get_indent_level(line)
+            
+            # If indent is back to base level or less, block is done
+            if indent <= base_indent:
+                break
+            
+            block.append(line)
+            i += 1
+        
+        return block, i
+
+    def _execute_if_statement(self, condition_tokens: List[str], block_lines: List[str], 
+                              all_lines: List[str], start_idx: int) -> Tuple[List[str], List[int], int]:
+        """
+        Execute an if/elif/else statement with Python-style indentation.
+        Returns (code_generators, print_outputs, next_line_index)
+        """
+        generators: List[str] = ["NOP", "SIF"]
+        outputs: List[int] = []
+        
+        # Determine comparison operator for code generator
+        comp_ops_map = {
+            '==': 'CEQ', '!=': 'CNE',
+            '<': 'CLT', '>': 'CGT',
+            '<=': 'CLE', '>=': 'CGE'
+        }
+        comp_gen = "CMP"
+        for tok in condition_tokens:
+            if tok in comp_ops_map:
+                comp_gen = comp_ops_map[tok]
+                break
+        
+        generators.extend(["Ld", comp_gen])
+        
+        # Evaluate condition
+        condition_result = self._eval_condition(condition_tokens)
+        
+        if condition_result:
+            # Execute if block
+            block_gens, block_outs = self._execute_block(block_lines)
+            generators.extend(block_gens)
+            outputs.extend(block_outs)
+            
+            # Skip any elif/else blocks
+            next_idx = start_idx
+            base_indent = self._get_indent_level(all_lines[start_idx - len(block_lines) - 1]) if start_idx > len(block_lines) else 0
+            
+            while next_idx < len(all_lines):
+                line = all_lines[next_idx]
+                stripped = line.strip()
+                
+                if not stripped:
+                    next_idx += 1
+                    continue
+                
+                indent = self._get_indent_level(line)
+                if indent > base_indent:
+                    next_idx += 1
+                    continue
+                
+                tokens = Tokenizer.tokenize_line(stripped)
+                if tokens and tokens[0] in ['elif', 'else']:
+                    # Skip this branch
+                    _, next_idx = self._parse_indented_block_from_lines(all_lines, next_idx + 1, indent)
+                else:
+                    break
+            
+            generators.append("EIF")
+            return generators, outputs, next_idx
+        else:
+            # Check for elif/else
+            next_idx = start_idx
+            base_indent = self._get_indent_level(all_lines[start_idx - len(block_lines) - 1]) if start_idx > len(block_lines) else 0
+            
+            while next_idx < len(all_lines):
+                line = all_lines[next_idx]
+                stripped = line.strip()
+                
+                if not stripped:
+                    next_idx += 1
+                    continue
+                
+                indent = self._get_indent_level(line)
+                if indent != base_indent:
+                    next_idx += 1
+                    continue
+                
+                tokens = Tokenizer.tokenize_line(stripped)
+                if not tokens:
+                    next_idx += 1
+                    continue
+                
+                if tokens[0] == 'elif':
+                    generators.append("ELS")
+                    # Parse elif condition
+                    elif_cond_tokens = self._extract_condition_tokens(tokens)
+                    elif_block, next_idx = self._parse_indented_block_from_lines(all_lines, next_idx + 1, indent)
+                    
+                    # Recursively handle elif as a new if
+                    elif_gens, elif_outs, next_idx = self._execute_if_statement(
+                        elif_cond_tokens, elif_block, all_lines, next_idx
+                    )
+                    generators.extend(elif_gens)
+                    outputs.extend(elif_outs)
+                    return generators, outputs, next_idx
+                    
+                elif tokens[0] == 'else':
+                    generators.append("ELS")
+                    # Parse else block
+                    else_block, next_idx = self._parse_indented_block_from_lines(all_lines, next_idx + 1, indent)
+                    
+                    # Execute else block
+                    block_gens, block_outs = self._execute_block(else_block)
+                    generators.extend(block_gens)
+                    outputs.extend(block_outs)
+                    generators.append("EIF")
+                    return generators, outputs, next_idx
+                else:
+                    break
+            
+            generators.append("EIF")
+            return generators, outputs, next_idx
+
+    def _execute_while_loop(self, condition_tokens: List[str], block_lines: List[str]) -> Tuple[List[str], List[int]]:
+        """
+        Execute a while loop with Python-style indentation.
+        """
+        generators: List[str] = ["NOP", "Swh"]
+        outputs: List[int] = []
+        
+        # Determine comparison operator for code generator
+        comp_ops_map = {
+            '==': 'CEQ', '!=': 'CNE',
+            '<': 'CLT', '>': 'CGT',
+            '<=': 'CLE', '>=': 'CGE'
+        }
+        comp_gen = "CMP"
+        for tok in condition_tokens:
+            if tok in comp_ops_map:
+                comp_gen = comp_ops_map[tok]
+                break
+        
+        generators.extend(["Ld", comp_gen])
+        
+        # Execute loop
+        max_iterations = 10000  # Prevent infinite loops
+        iteration = 0
+        
+        while iteration < max_iterations:
+            # Check condition
+            try:
+                condition_result = self._eval_condition(condition_tokens)
+            except Exception:
+                break
+            
+            if not condition_result:
+                break
+            
+            # Execute block
+            block_gens, block_outs = self._execute_block(block_lines)
+            outputs.extend(block_outs)
+            
+            iteration += 1
+        
+        if iteration >= max_iterations:
+            raise Exception("Runtime error: loop exceeded maximum iterations")
+        
+        generators.append("Ewh")
+        return generators, outputs
+
+    def _extract_condition_tokens(self, tokens: List[str]) -> List[str]:
+        """
+        Extract condition tokens from an if/elif/while statement.
+        Expected format: if/elif/while ( condition ) :
+        """
+        if '(' not in tokens or ')' not in tokens:
+            raise Exception("Syntax error: condition must be in parentheses")
+        
+        lpar_idx = tokens.index('(')
+        rpar_idx = tokens.index(')')
+        
+        if rpar_idx <= lpar_idx + 1:
+            raise Exception("Syntax error: empty condition")
+        
+        return tokens[lpar_idx + 1:rpar_idx]
+
+    def _handle_control_flow_statement(self, line: str, all_lines: List[str]) -> Tuple[List[str], List[int]]:
+        """
+        Handle a control flow statement (if/while) within a block execution.
+        This is a simplified version for nested structures.
+        """
+        # This is a placeholder for nested control flow
+        # For now, just execute as a regular statement
+        tokens = Tokenizer.tokenize_line(line.strip())
+        has_semi = tokens[-1] == ';' if tokens else False
+        if not has_semi and tokens:
+            tokens.append(';')
+        return self._execute_cono_and_run(tokens, has_semi)
 
     def _execute_cono_and_run(self, tokens: List[str], has_semicolon: bool) -> Tuple[List[str], List[int]]:
         """
@@ -345,6 +668,78 @@ class Interpreter:
                 raise Exception(f"Runtime error: variable '{operand}' is not declared")
             value = self.variables[operand]
         return value
+
+    def process_source_with_blocks(self, source_text: str) -> Tuple[List[str], List[int]]:
+        """
+        Process source code that may contain if/elif/else and while blocks.
+        Returns (display_lines, print_outputs)
+        """
+        lines = source_text.split('\n')
+        all_display_lines: List[str] = []
+        all_outputs: List[int] = []
+        
+        i = 0
+        while i < len(lines):
+            line = lines[i]
+            stripped = line.strip()
+            
+            # Skip empty lines and comments
+            if not stripped or stripped.startswith('#'):
+                i += 1
+                continue
+            
+            tokens = Tokenizer.tokenize_line(stripped)
+            if not tokens:
+                i += 1
+                continue
+            
+            first_tok = tokens[0]
+            
+            if first_tok == 'if':
+                # Parse if statement with indented block
+                base_indent = self._get_indent_level(line)
+                condition_tokens = self._extract_condition_tokens(tokens)
+                block_lines, next_idx = self._parse_indented_block_from_lines(lines, i + 1, base_indent)
+                
+                # Execute if statement
+                generators, outputs, next_idx = self._execute_if_statement(
+                    condition_tokens, block_lines, lines, i + len(block_lines) + 1
+                )
+                
+                if self.verbose:
+                    all_display_lines.append(f"{i+1}. {stripped}")
+                    all_display_lines.append("Code generators called: " + " ".join(generators))
+                    all_display_lines.append("")
+                
+                all_outputs.extend(outputs)
+                i = next_idx
+                
+            elif first_tok == 'while':
+                # Parse while loop with indented block
+                base_indent = self._get_indent_level(line)
+                condition_tokens = self._extract_condition_tokens(tokens)
+                block_lines, next_idx = self._parse_indented_block_from_lines(lines, i + 1, base_indent)
+                
+                # Execute while loop
+                generators, outputs = self._execute_while_loop(condition_tokens, block_lines)
+                
+                if self.verbose:
+                    all_display_lines.append(f"{i+1}. {stripped}")
+                    all_display_lines.append("Code generators called: " + " ".join(generators))
+                    all_display_lines.append("")
+                
+                all_outputs.extend(outputs)
+                i = next_idx
+                
+            else:
+                # Regular statement (not control flow)
+                self._interactive_line_no += 1
+                line_no, display_lines, _, print_outputs = self.process_line(stripped)
+                all_display_lines.extend(display_lines)
+                all_outputs.extend(print_outputs)
+                i += 1
+        
+        return all_display_lines, all_outputs
 
     def compile_source(self, source_text: str) -> Dict[str, object]:
         """

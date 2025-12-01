@@ -40,6 +40,10 @@ class Encoder:
         'integer': 100,
         'input': 101,
         'print': 102,
+        'if': 103,
+        'elif': 104,
+        'else': 105,
+        'while': 107,
     }
 
     OPERATOR_CODES: Dict[str, int] = {
@@ -52,6 +56,13 @@ class Encoder:
         '*': 206,
         '/': 207,
         '^': 208,
+        '==': 209,
+        '!=': 210,
+        '<': 211,
+        '>': 212,
+        '<=': 213,
+        '>=': 214,
+        ':': 215,
     }
 
     SYMBOL_START_CODE: int = 600

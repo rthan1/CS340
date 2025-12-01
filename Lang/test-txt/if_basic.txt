@@ -1,0 +1,7 @@
+# Basic if statement test
+integer x = 5
+integer y = 10
+if (x < y):
+    y = y + 1
+print(x)
+print(y)
