@@ -34,15 +34,15 @@ class Interpreter:
     high-level processing methods for CLI/IDE.
     """
 
-    def __init__(self, verbose: bool = False) -> None:
-        """
+    """
         /**********************************************************
         * METHOD: __init__                                        *
         * DESCRIPTION: Initialize components and session state     *
         * PARAMETERS: None                                        *
         * RETURN VALUE: None                                      *
         **********************************************************/
-        """
+    """
+    def __init__(self, verbose: bool = False) -> None:
         self.tokenizer = Tokenizer()
         self.encoder = Encoder()
         self._interactive_line_no = 0
@@ -53,15 +53,15 @@ class Interpreter:
         self.block_lines: List[Tuple[str, int]] = []  # (line_text, indent_level)
         self.base_indent: int = 0
 
-    def reset_session(self) -> None:
-        """
+    """
         /**********************************************************
         * METHOD: reset_session                                   *
-        * DESCRIPTION: Reset encoder/tables and line counter       *
+        * DESCRIPTION: Reset encoder/tables, counters, and blocks *
         * PARAMETERS: None                                        *
         * RETURN VALUE: None                                      *
         **********************************************************/
-        """
+    """
+    def reset_session(self) -> None:
         self.encoder.reset()
         self._interactive_line_no = 0
         self.variables.clear()
@@ -69,19 +69,28 @@ class Interpreter:
         self.block_lines.clear()
         self.base_indent = 0
 
+    """
+        /**********************************************************
+        * METHOD: set_verbose                                     *
+        * DESCRIPTION: Enable or disable verbose tracing          *
+        * PARAMETERS: verbose (bool)                              *
+        * RETURN VALUE: None                                      *
+        **********************************************************/
+    """
     def set_verbose(self, verbose: bool) -> None:
         self.verbose = verbose
 
-    def process_line(self, line: str) -> Tuple[int, List[str], List[int], List[int]]:
-        """
+    """
         /**********************************************************
         * METHOD: process_line                                    *
         * DESCRIPTION: Tokenize and encode a single line;         *
         *              maintains session tables and codes         *
         * PARAMETERS: line (str)                                  *
-        * RETURN VALUE: (line_no, display_lines, line_codes)      *
+        * RETURN VALUE: (line_no, display_lines, line_codes,      *
+        *                print_outputs)                           *
         **********************************************************/
-        """
+    """
+    def process_line(self, line: str) -> Tuple[int, List[str], List[int], List[int]]:
         self._interactive_line_no += 1
         # Tokenize (Tokenizer already removes trailing comments with '#')
         tokens = Tokenizer.tokenize_line(line)
@@ -136,10 +145,15 @@ class Interpreter:
 
         return self._interactive_line_no, display_lines, line_codes, print_outputs
 
+    """
+        /**********************************************************
+        * METHOD: _get_indent_level                               *
+        * DESCRIPTION: Compute indentation level of a source line *
+        * PARAMETERS: line (str)                                  *
+        * RETURN VALUE: indent (int)                              *
+        **********************************************************/
+    """
     def _get_indent_level(self, line: str) -> int:
-        """
-        Get the indentation level (number of leading spaces or tabs*4)
-        """
         indent = 0
         for ch in line:
             if ch == ' ':
@@ -150,12 +164,16 @@ class Interpreter:
                 break
         return indent
 
+    """
+        /**********************************************************
+        * METHOD: _eval_condition                                 *
+        * DESCRIPTION: Evaluate a comparison expression for if/   *
+        *              elif/while conditions                      *
+        * PARAMETERS: tokens (List[str])                          *
+        * RETURN VALUE: bool                                      *
+        **********************************************************/
+    """
     def _eval_condition(self, tokens: List[str]) -> bool:
-        """
-        Evaluate a boolean condition with comparison operators.
-        Expected format: expr1 op expr2
-        where op is one of: ==, !=, <, >, <=, >=
-        """
         # Find the comparison operator
         comp_ops = ['==', '!=', '<=', '>=', '<', '>']
         op_index = -1
@@ -197,11 +215,15 @@ class Interpreter:
         else:
             raise Exception(f"Unknown comparison operator: {op}")
 
+    """
+        /**********************************************************
+        * METHOD: _execute_block                                  *
+        * DESCRIPTION: Execute a block of indented statements     *
+        * PARAMETERS: lines (List[str])                           *
+        * RETURN VALUE: (code_generators, print_outputs)          *
+        **********************************************************/
+    """
     def _execute_block(self, lines: List[str]) -> Tuple[List[str], List[int]]:
-        """
-        Execute a block of statements (indented lines).
-        Returns (code_generators, print_outputs)
-        """
         all_generators: List[str] = []
         all_outputs: List[int] = []
         
@@ -236,11 +258,17 @@ class Interpreter:
         
         return all_generators, all_outputs
 
+    """
+        /**********************************************************
+        * METHOD: _parse_indented_block_from_lines                *
+        * DESCRIPTION: Collect lines belonging to an indented     *
+        *              block following a control statement        *
+        * PARAMETERS: lines (List[str]), start_idx (int),         *
+        *              base_indent (int)                          *
+        * RETURN VALUE: (block_lines, end_index)                  *
+        **********************************************************/
+    """
     def _parse_indented_block_from_lines(self, lines: List[str], start_idx: int, base_indent: int) -> Tuple[List[str], int]:
-        """
-        Parse an indented block starting at start_idx.
-        Returns (block_lines, end_idx)
-        """
         block: List[str] = []
         i = start_idx
         
@@ -264,12 +292,20 @@ class Interpreter:
         
         return block, i
 
-    def _execute_if_statement(self, condition_tokens: List[str], block_lines: List[str], 
+    """
+        /**********************************************************
+        * METHOD: _execute_if_statement                           *
+        * DESCRIPTION: Execute an if/elif/else chain using        *
+        *              indentation-based blocks                   *
+        * PARAMETERS: condition_tokens (List[str]),               *
+        *              block_lines (List[str]),                   *
+        *              all_lines (List[str]), start_idx (int)     *
+        * RETURN VALUE: (code_generators, print_outputs,          *
+        *               next_line_index)                          *
+        **********************************************************/
+    """
+    def _execute_if_statement(self, condition_tokens: List[str], block_lines: List[str],
                               all_lines: List[str], start_idx: int) -> Tuple[List[str], List[int], int]:
-        """
-        Execute an if/elif/else statement with Python-style indentation.
-        Returns (code_generators, print_outputs, next_line_index)
-        """
         generators: List[str] = ["NOP", "SIF"]
         outputs: List[int] = []
         
@@ -376,10 +412,17 @@ class Interpreter:
             generators.append("EIF")
             return generators, outputs, next_idx
 
+    """
+        /**********************************************************
+        * METHOD: _execute_while_loop                             *
+        * DESCRIPTION: Execute a while loop with indentation-     *
+        *              based body                                 *
+        * PARAMETERS: condition_tokens (List[str]),                *
+        *              block_lines (List[str])                    *
+        * RETURN VALUE: (code_generators, print_outputs)          *
+        **********************************************************/
+    """
     def _execute_while_loop(self, condition_tokens: List[str], block_lines: List[str]) -> Tuple[List[str], List[int]]:
-        """
-        Execute a while loop with Python-style indentation.
-        """
         generators: List[str] = ["NOP", "Swh"]
         outputs: List[int] = []
         
@@ -423,11 +466,16 @@ class Interpreter:
         generators.append("Ewh")
         return generators, outputs
 
+    """
+        /**********************************************************
+        * METHOD: _extract_condition_tokens                       *
+        * DESCRIPTION: Extract the condition expression from an   *
+        *              if/elif/while statement                    *
+        * PARAMETERS: tokens (List[str])                          *
+        * RETURN VALUE: List[str] (condition tokens)              *
+        **********************************************************/
+    """
     def _extract_condition_tokens(self, tokens: List[str]) -> List[str]:
-        """
-        Extract condition tokens from an if/elif/while statement.
-        Expected format: if/elif/while ( condition ) :
-        """
         if '(' not in tokens or ')' not in tokens:
             raise Exception("Syntax error: condition must be in parentheses")
         
@@ -439,11 +487,16 @@ class Interpreter:
         
         return tokens[lpar_idx + 1:rpar_idx]
 
+    """
+        /**********************************************************
+        * METHOD: _handle_control_flow_statement                  *
+        * DESCRIPTION: Handle an inner if/while encountered       *
+        *              during block execution                     *
+        * PARAMETERS: line (str), all_lines (List[str])           *
+        * RETURN VALUE: (code_generators, print_outputs)          *
+        **********************************************************/
+    """
     def _handle_control_flow_statement(self, line: str, all_lines: List[str]) -> Tuple[List[str], List[int]]:
-        """
-        Handle a control flow statement (if/while) within a block execution.
-        This is a simplified version for nested structures.
-        """
         # This is a placeholder for nested control flow
         # For now, just execute as a regular statement
         tokens = Tokenizer.tokenize_line(line.strip())
@@ -452,19 +505,16 @@ class Interpreter:
             tokens.append(';')
         return self._execute_cono_and_run(tokens, has_semi)
 
+    """
+        /**********************************************************
+        * METHOD: _execute_cono_and_run                           *
+        * DESCRIPTION: Drive CONO-style dispatch for single-line  *
+        *              declarations, I/O, assignments, and exprs  *
+        * PARAMETERS: tokens (List[str]), has_semicolon (bool)    *
+        * RETURN VALUE: (code_generators, print_outputs)          *
+        **********************************************************/
+    """
     def _execute_cono_and_run(self, tokens: List[str], has_semicolon: bool) -> Tuple[List[str], List[int]]:
-        """
-        Drive a simplified CONO-style pass that both:
-          - builds a list of code generators for verbose output
-          - dispatches to the appropriate semantic executor
-
-        For this assignment we support:
-          - Declarations: integer x; / integer x = 10;
-          - Input:        input(x);
-          - Print:        print(x); or print(10);
-          - Assignments:  x = expression;
-          - Expressions:  expression;
-        """
         if not tokens:
             return [], []
 
@@ -510,13 +560,16 @@ class Interpreter:
 
         return generators_called, print_outputs
 
+    """
+        /**********************************************************
+        * METHOD: _eval_pythonic_expr                             *
+        * DESCRIPTION: Evaluate an arithmetic expression using    *
+        *              Python semantics with integer-only result  *
+        * PARAMETERS: expr_tokens (List[str])                     *
+        * RETURN VALUE: int                                       *
+        **********************************************************/
+    """
     def _eval_pythonic_expr(self, expr_tokens: List[str]) -> int:
-        """
-        Evaluate an arithmetic expression using Python semantics, with small
-        adaptations to keep integers:
-          - '/' is treated as integer division by mapping to '//'
-          - '^' is treated as exponent by mapping to '**'
-        """
         if not expr_tokens:
             raise Exception("Syntax error: empty expression")
 
@@ -551,11 +604,16 @@ class Interpreter:
 
         return value
 
+    """
+        /**********************************************************
+        * METHOD: _exec_assignment                                *
+        * DESCRIPTION: Execute an assignment of the form          *
+        *              IDENT = expression ;                       *
+        * PARAMETERS: tokens (List[str])                          *
+        * RETURN VALUE: None                                      *
+        **********************************************************/
+    """
     def _exec_assignment(self, tokens: List[str]) -> None:
-        """
-        Execute an assignment statement of the form:
-          IDENT = expression ;
-        """
         if not tokens:
             return
 
@@ -588,12 +646,16 @@ class Interpreter:
         value = self._eval_pythonic_expr(rhs_tokens)
         self.variables[name] = value
 
+    """
+        /**********************************************************
+        * METHOD: _exec_expression                                *
+        * DESCRIPTION: Evaluate a bare expression statement and   *
+        *              discard its value                          *
+        * PARAMETERS: tokens (List[str])                          *
+        * RETURN VALUE: None                                      *
+        **********************************************************/
+    """
     def _exec_expression(self, tokens: List[str]) -> None:
-        """
-        Execute a bare expression statement of the form:
-          expression ;
-        The value is evaluated for errors and then discarded.
-        """
         if not tokens:
             return
 
@@ -603,6 +665,15 @@ class Interpreter:
 
         _ = self._eval_pythonic_expr(core)
 
+    """
+        /**********************************************************
+        * METHOD: _expect_identifier_after                        *
+        * DESCRIPTION: Return identifier token following a        *
+        *              keyword, enforcing syntax rules            *
+        * PARAMETERS: tokens (List[str]), keyword_index (int)     *
+        * RETURN VALUE: ident (str)                               *
+        **********************************************************/
+    """
     def _expect_identifier_after(self, tokens: List[str], keyword_index: int) -> str:
         if keyword_index + 1 >= len(tokens):
             raise Exception("Syntax error: expected identifier")
@@ -611,6 +682,15 @@ class Interpreter:
             raise Exception("Syntax error: expected identifier")
         return ident
 
+    """
+        /**********************************************************
+        * METHOD: _exec_declaration                               *
+        * DESCRIPTION: Execute an integer variable declaration     *
+        *              with optional initializer                  *
+        * PARAMETERS: tokens (List[str])                          *
+        * RETURN VALUE: None                                      *
+        **********************************************************/
+    """
     def _exec_declaration(self, tokens: List[str]) -> None:
         # Pattern: integer IDENT ; | integer IDENT = INT ;
         try:
@@ -630,6 +710,15 @@ class Interpreter:
             value = int(lit)
         self.variables[ident] = value
 
+    """
+        /**********************************************************
+        * METHOD: _exec_input                                     *
+        * DESCRIPTION: Execute an input statement and store user   *
+        *              integer into a declared variable           *
+        * PARAMETERS: tokens (List[str])                          *
+        * RETURN VALUE: None                                      *
+        **********************************************************/
+    """
     def _exec_input(self, tokens: List[str]) -> None:
         # Pattern: input ( IDENT ) ;
         try:
@@ -651,6 +740,14 @@ class Interpreter:
             raise Exception("Runtime error: input must be an integer")
         self.variables[ident] = user_val
 
+    """
+        /**********************************************************
+        * METHOD: _exec_print                                     *
+        * DESCRIPTION: Execute a print statement and return value  *
+        * PARAMETERS: tokens (List[str])                          *
+        * RETURN VALUE: value printed (int)                       *
+        **********************************************************/
+    """
     def _exec_print(self, tokens: List[str]) -> None:
         # Pattern: print ( IDENT | INT ) ;
         try:
@@ -669,11 +766,16 @@ class Interpreter:
             value = self.variables[operand]
         return value
 
+    """
+        /**********************************************************
+        * METHOD: process_source_with_blocks                      *
+        * DESCRIPTION: Execute multi-line source with if/elif/    *
+        *              else and while blocks using indentation    *
+        * PARAMETERS: source_text (str)                           *
+        * RETURN VALUE: (display_lines, print_outputs)            *
+        **********************************************************/
+    """
     def process_source_with_blocks(self, source_text: str) -> Tuple[List[str], List[int]]:
-        """
-        Process source code that may contain if/elif/else and while blocks.
-        Returns (display_lines, print_outputs)
-        """
         lines = source_text.split('\n')
         all_display_lines: List[str] = []
         all_outputs: List[int] = []
@@ -741,16 +843,16 @@ class Interpreter:
         
         return all_display_lines, all_outputs
 
-    def compile_source(self, source_text: str) -> Dict[str, object]:
-        """
+    """
         /**********************************************************
         * METHOD: compile_source                                  *
-        * DESCRIPTION: Compile in-memory text, returning per-line  *
-        *              encodings, tables, and program codes        *
-        * PARAMETERS: source_text (str)                            *
-        * RETURN VALUE: dict                                       *
+        * DESCRIPTION: Compile in-memory text, returning per-line *
+        *              encodings, tables, and program codes       *
+        * PARAMETERS: source_text (str)                           *
+        * RETURN VALUE: dict                                      *
         **********************************************************/
-        """
+    """
+    def compile_source(self, source_text: str) -> Dict[str, object]:
         self.encoder.reset()
         per_line: List[Tuple[int, str, List[str]]] = []
         lines = source_text.split('\n')
@@ -793,15 +895,15 @@ class Interpreter:
             'program_codes': program_codes,  # list[int]
         }
 
-    def compile_file(self, file_path: str) -> Dict[str, object]:
-        """
+    """
         /**********************************************************
         * METHOD: compile_file                                    *
-        * DESCRIPTION: Compile a file path using compile_source     *
-        * PARAMETERS: file_path (str)                               *
-        * RETURN VALUE: dict                                        *
+        * DESCRIPTION: Compile a file path using compile_source   *
+        * PARAMETERS: file_path (str)                             *
+        * RETURN VALUE: dict                                      *
         **********************************************************/
-        """
+    """
+    def compile_file(self, file_path: str) -> Dict[str, object]:
         with open(file_path, 'r') as f:
             text = f.read()
         return self.compile_source(text)
