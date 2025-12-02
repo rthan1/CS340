@@ -33,40 +33,46 @@ class Interpreter:
     Interpreter that wires Tokenizer and Encoder and exposes
     high-level processing methods for CLI/IDE.
     """
-
-    def __init__(self, verbose: bool = False) -> None:
-        """
+    """
         /**********************************************************
         * METHOD: __init__                                        *
-        * DESCRIPTION: Initialize components and session state     *
+        * DESCRIPTION: Initialize components and session state    *
         * PARAMETERS: None                                        *
         * RETURN VALUE: None                                      *
         **********************************************************/
-        """
+    """
+    def __init__(self, verbose: bool = False) -> None:
         self.tokenizer = Tokenizer()
         self.encoder = Encoder()
         self._interactive_line_no = 0
         self.verbose: bool = verbose
         self.variables: Dict[str, int] = {}
 
-    def reset_session(self) -> None:
-        """
+    """
         /**********************************************************
         * METHOD: reset_session                                   *
-        * DESCRIPTION: Reset encoder/tables and line counter       *
+        * DESCRIPTION: Reset encoder/tables and line counter      *
         * PARAMETERS: None                                        *
         * RETURN VALUE: None                                      *
         **********************************************************/
-        """
+    """
+    def reset_session(self) -> None:
         self.encoder.reset()
         self._interactive_line_no = 0
         self.variables.clear()
 
+    """
+        /**********************************************************
+        * METHOD: set_verbose                                     *
+        * DESCRIPTION: Enable or disable verbose tracing          *
+        * PARAMETERS: verbose (bool)                              *
+        * RETURN VALUE: None                                      *
+        **********************************************************/
+    """
     def set_verbose(self, verbose: bool) -> None:
         self.verbose = verbose
 
-    def process_line(self, line: str) -> Tuple[int, List[str], List[int], List[int]]:
-        """
+    """
         /**********************************************************
         * METHOD: process_line                                    *
         * DESCRIPTION: Tokenize and encode a single line;         *
@@ -74,7 +80,8 @@ class Interpreter:
         * PARAMETERS: line (str)                                  *
         * RETURN VALUE: (line_no, display_lines, line_codes)      *
         **********************************************************/
-        """
+    """
+    def process_line(self, line: str) -> Tuple[int, List[str], List[int], List[int]]:
         self._interactive_line_no += 1
         # Tokenize (Tokenizer already removes trailing comments with '#')
         tokens = Tokenizer.tokenize_line(line)
@@ -129,19 +136,15 @@ class Interpreter:
 
         return self._interactive_line_no, display_lines, line_codes, print_outputs
 
+    """
+        /**********************************************************
+        * METHOD: _execute_cono_and_run                           *
+        * DESCRIPTION: Drive CONO-style dispatch for statements   *
+        * PARAMETERS: tokens (List[str]), has_semicolon (bool)    *
+        * RETURN VALUE: (generators_called, print_outputs)        *
+        **********************************************************/
+    """
     def _execute_cono_and_run(self, tokens: List[str], has_semicolon: bool) -> Tuple[List[str], List[int]]:
-        """
-        Drive a simplified CONO-style pass that both:
-          - builds a list of code generators for verbose output
-          - dispatches to the appropriate semantic executor
-
-        For this assignment we support:
-          - Declarations: integer x; / integer x = 10;
-          - Input:        input(x);
-          - Print:        print(x); or print(10);
-          - Assignments:  x = expression;
-          - Expressions:  expression;
-        """
         if not tokens:
             return [], []
 
@@ -187,13 +190,16 @@ class Interpreter:
 
         return generators_called, print_outputs
 
+    """
+        /**********************************************************
+        * METHOD: _eval_pythonic_expr                             *
+        * DESCRIPTION: Evaluate an arithmetic expression using    *
+        *              Python semantics with integer-only results *
+        * PARAMETERS: expr_tokens (List[str])                     *
+        * RETURN VALUE: int                                       *
+        **********************************************************/
+    """
     def _eval_pythonic_expr(self, expr_tokens: List[str]) -> int:
-        """
-        Evaluate an arithmetic expression using Python semantics, with small
-        adaptations to keep integers:
-          - '/' is treated as integer division by mapping to '//'
-          - '^' is treated as exponent by mapping to '**'
-        """
         if not expr_tokens:
             raise Exception("Syntax error: empty expression")
 
@@ -228,11 +234,15 @@ class Interpreter:
 
         return value
 
+    """
+        /**********************************************************
+        * METHOD: _exec_assignment                                *
+        * DESCRIPTION: Execute an assignment statement            *
+        * PARAMETERS: tokens (List[str])                          *
+        * RETURN VALUE: None                                      *
+        **********************************************************/
+    """
     def _exec_assignment(self, tokens: List[str]) -> None:
-        """
-        Execute an assignment statement of the form:
-          IDENT = expression ;
-        """
         if not tokens:
             return
 
@@ -265,12 +275,16 @@ class Interpreter:
         value = self._eval_pythonic_expr(rhs_tokens)
         self.variables[name] = value
 
+    """
+        /**********************************************************
+        * METHOD: _exec_expression                                *
+        * DESCRIPTION: Evaluate a bare expression statement and   *
+        *              discard its value                          *
+        * PARAMETERS: tokens (List[str])                          *
+        * RETURN VALUE: None                                      *
+        **********************************************************/
+    """
     def _exec_expression(self, tokens: List[str]) -> None:
-        """
-        Execute a bare expression statement of the form:
-          expression ;
-        The value is evaluated for errors and then discarded.
-        """
         if not tokens:
             return
 
@@ -280,6 +294,15 @@ class Interpreter:
 
         _ = self._eval_pythonic_expr(core)
 
+    """
+        /**********************************************************
+        * METHOD: _expect_identifier_after                        *
+        * DESCRIPTION: Return the identifier token following a     *
+        *              keyword, enforcing syntax rules            *
+        * PARAMETERS: tokens (List[str]), keyword_index (int)     *
+        * RETURN VALUE: ident (str)                               *
+        **********************************************************/
+    """
     def _expect_identifier_after(self, tokens: List[str], keyword_index: int) -> str:
         if keyword_index + 1 >= len(tokens):
             raise Exception("Syntax error: expected identifier")
@@ -288,6 +311,14 @@ class Interpreter:
             raise Exception("Syntax error: expected identifier")
         return ident
 
+    """
+        /**********************************************************
+        * METHOD: _exec_declaration                               *
+        * DESCRIPTION: Execute an integer variable declaration     *
+        * PARAMETERS: tokens (List[str])                          *
+        * RETURN VALUE: None                                      *
+        **********************************************************/
+    """
     def _exec_declaration(self, tokens: List[str]) -> None:
         # Pattern: integer IDENT ; | integer IDENT = INT ;
         try:
@@ -307,6 +338,15 @@ class Interpreter:
             value = int(lit)
         self.variables[ident] = value
 
+    """
+        /**********************************************************
+        * METHOD: _exec_input                                     *
+        * DESCRIPTION: Execute an input statement and store value  *
+        *              into a declared variable                   *
+        * PARAMETERS: tokens (List[str])                          *
+        * RETURN VALUE: None                                      *
+        **********************************************************/
+    """
     def _exec_input(self, tokens: List[str]) -> None:
         # Pattern: input ( IDENT ) ;
         try:
@@ -328,6 +368,14 @@ class Interpreter:
             raise Exception("Runtime error: input must be an integer")
         self.variables[ident] = user_val
 
+    """
+        /**********************************************************
+        * METHOD: _exec_print                                     *
+        * DESCRIPTION: Execute a print statement and return value  *
+        * PARAMETERS: tokens (List[str])                          *
+        * RETURN VALUE: value printed (int)                       *
+        **********************************************************/
+    """
     def _exec_print(self, tokens: List[str]) -> None:
         # Pattern: print ( IDENT | INT ) ;
         try:
@@ -346,16 +394,16 @@ class Interpreter:
             value = self.variables[operand]
         return value
 
-    def compile_source(self, source_text: str) -> Dict[str, object]:
-        """
+    """
         /**********************************************************
-        * METHOD: compile_source                                  *
+        * METHOD: compile_source                                   *
         * DESCRIPTION: Compile in-memory text, returning per-line  *
         *              encodings, tables, and program codes        *
         * PARAMETERS: source_text (str)                            *
         * RETURN VALUE: dict                                       *
         **********************************************************/
-        """
+    """
+    def compile_source(self, source_text: str) -> Dict[str, object]:
         self.encoder.reset()
         per_line: List[Tuple[int, str, List[str]]] = []
         lines = source_text.split('\n')
@@ -398,15 +446,15 @@ class Interpreter:
             'program_codes': program_codes,  # list[int]
         }
 
-    def compile_file(self, file_path: str) -> Dict[str, object]:
-        """
+    """
         /**********************************************************
         * METHOD: compile_file                                    *
-        * DESCRIPTION: Compile a file path using compile_source     *
-        * PARAMETERS: file_path (str)                               *
-        * RETURN VALUE: dict                                        *
+        * DESCRIPTION: Compile a file path using compile_source   *
+        * PARAMETERS: file_path (str)                             *
+        * RETURN VALUE: dict                                      *
         **********************************************************/
-        """
+    """
+    def compile_file(self, file_path: str) -> Dict[str, object]:
         with open(file_path, 'r') as f:
             text = f.read()
         return self.compile_source(text)
