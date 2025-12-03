@@ -224,39 +224,61 @@ class Interpreter:
         **********************************************************/
     """
     def _execute_block(self, lines: List[str]) -> Tuple[List[str], List[int]]:
-        all_generators: List[str] = []
-        all_outputs: List[int] = []
-        
-        for line in lines:
+        generators: List[str] = []
+        outputs: List[int] = []
+
+        idx = 0
+        while idx < len(lines):
+            line = lines[idx]
             stripped = line.strip()
             if not stripped:
+                idx += 1
                 continue
-            
+
             tokens = Tokenizer.tokenize_line(stripped)
             if not tokens:
+                idx += 1
                 continue
-            
-            # Encode for tables
+
+            # Always encode tokens so symbol/literal tables and program codes stay in sync
             self.encoder.encode_tokens(tokens)
-            
-            # Check if this is a control flow statement
-            first_tok = tokens[0] if tokens else None
-            
-            if first_tok in ['if', 'while']:
-                # Recursive control flow - need to parse nested block
-                gens, outs = self._handle_control_flow_statement(line, lines)
-                all_generators.extend(gens)
-                all_outputs.extend(outs)
+
+            first_tok = tokens[0]
+
+            if first_tok == 'if':
+                header_indent = self._get_indent_level(line)
+                condition_tokens = self._extract_condition_tokens(tokens)
+                block_lines, next_idx = self._parse_indented_block_from_lines(
+                    lines, idx + 1, header_indent
+                )
+                if_gens, if_outs, after_idx = self._execute_if_statement(
+                    condition_tokens, block_lines, lines, next_idx
+                )
+                generators.extend(if_gens)
+                outputs.extend(if_outs)
+                idx = after_idx
+            elif first_tok == 'while':
+                header_indent = self._get_indent_level(line)
+                condition_tokens = self._extract_condition_tokens(tokens)
+                block_lines, next_idx = self._parse_indented_block_from_lines(
+                    lines, idx + 1, header_indent
+                )
+                while_gens, while_outs = self._execute_while_loop(
+                    condition_tokens, block_lines
+                )
+                generators.extend(while_gens)
+                outputs.extend(while_outs)
+                idx = next_idx
             else:
-                # Regular statement
-                has_semi = tokens[-1] == ';' if tokens else False
+                has_semi = tokens[-1] == ';'
                 if not has_semi:
                     tokens.append(';')
-                gens, outs = self._execute_cono_and_run(tokens, has_semi)
-                all_generators.extend(gens)
-                all_outputs.extend(outs)
-        
-        return all_generators, all_outputs
+                line_gens, line_outs = self._execute_cono_and_run(tokens, has_semi)
+                generators.extend(line_gens)
+                outputs.extend(line_outs)
+                idx += 1
+
+        return generators, outputs
 
     """
         /**********************************************************
@@ -497,13 +519,30 @@ class Interpreter:
         **********************************************************/
     """
     def _handle_control_flow_statement(self, line: str, all_lines: List[str]) -> Tuple[List[str], List[int]]:
-        # This is a placeholder for nested control flow
-        # For now, just execute as a regular statement
         tokens = Tokenizer.tokenize_line(line.strip())
-        has_semi = tokens[-1] == ';' if tokens else False
-        if not has_semi and tokens:
-            tokens.append(';')
-        return self._execute_cono_and_run(tokens, has_semi)
+        if not tokens:
+            return [], []
+        first_tok = tokens[0]
+        if first_tok not in ["if", "while"]:
+            has_semi = tokens[-1] == ';'
+            if not has_semi:
+                tokens.append(';')
+            return self._execute_cono_and_run(tokens, has_semi)
+
+        header_indent = self._get_indent_level(line)
+        condition_tokens = self._extract_condition_tokens(tokens)
+        block_lines, next_idx = self._parse_indented_block_from_lines(
+            all_lines, all_lines.index(line) + 1, header_indent
+        )
+
+        if first_tok == "if":
+            gens, outs, _ = self._execute_if_statement(
+                condition_tokens, block_lines, all_lines, next_idx
+            )
+            return gens, outs
+
+        gens, outs = self._execute_while_loop(condition_tokens, block_lines)
+        return gens, outs
 
     """
         /**********************************************************
