@@ -54,6 +54,9 @@ class Interpreter:
         self.in_block: bool = False
         self.block_lines: List[Tuple[str, int]] = []  # (line_text, indent_level)
         self.base_indent: int = 0
+        # Track current source line for better error messages
+        self._current_source_line: Optional[int] = None
+        self._current_function: Optional[str] = None
 
     """
         /**********************************************************
@@ -71,6 +74,8 @@ class Interpreter:
         self.in_block = False
         self.block_lines.clear()
         self.base_indent = 0
+        self._current_source_line = None
+        self._current_function = None
 
     """
         /**********************************************************
@@ -169,6 +174,26 @@ class Interpreter:
 
     """
         /**********************************************************
+        * METHOD: _raise_error                                    *
+        * DESCRIPTION: Raise an error with line number context    *
+        * PARAMETERS: message (str)                               *
+        * RETURN VALUE: None (raises Exception)                   *
+        **********************************************************/
+    """
+    def _raise_error(self, message: str) -> None:
+        if self._current_function:
+            context = f"in function '{self._current_function}'"
+            if self._current_source_line:
+                raise Exception(f"Line {self._current_source_line} {context}: {message}")
+            else:
+                raise Exception(f"{context}: {message}")
+        elif self._current_source_line:
+            raise Exception(f"Line {self._current_source_line}: {message}")
+        else:
+            raise Exception(message)
+
+    """
+        /**********************************************************
         * METHOD: _eval_condition                                 *
         * DESCRIPTION: Evaluate a comparison expression for if/   *
         *              elif/while conditions                      *
@@ -189,14 +214,14 @@ class Interpreter:
                 break
         
         if op_index == -1:
-            raise Exception("Syntax error: condition must contain comparison operator")
+            self._raise_error("Syntax error: condition must contain comparison operator")
         
         # Split into left and right expressions
         left_tokens = tokens[:op_index]
         right_tokens = tokens[op_index + 1:]
         
         if not left_tokens or not right_tokens:
-            raise Exception("Syntax error: invalid condition")
+            self._raise_error("Syntax error: invalid condition")
         
         # Evaluate both sides (may include function calls)
         left_val, _ = self._eval_with_function_calls(left_tokens)
@@ -216,7 +241,7 @@ class Interpreter:
         elif op == '>=':
             return left_val >= right_val
         else:
-            raise Exception(f"Unknown comparison operator: {op}")
+            self._raise_error(f"Unknown comparison operator: {op}")
 
     """
         /**********************************************************
@@ -249,9 +274,9 @@ class Interpreter:
             first_tok = tokens[0]
 
             if first_tok == 'return':
-                # Handle return statement
+                # Handle return statement - pass accumulated outputs with the exception
                 return_val = self._exec_return(tokens)
-                raise ReturnValue(return_val)
+                raise ReturnValue(return_val, outputs)
             elif first_tok == 'if':
                 header_indent = self._get_indent_level(line)
                 condition_tokens = self._extract_condition_tokens(tokens)
@@ -490,7 +515,7 @@ class Interpreter:
             iteration += 1
         
         if iteration >= max_iterations:
-            raise Exception("Runtime error: loop exceeded maximum iterations")
+            self._raise_error("Runtime error: loop exceeded maximum iterations")
         
         generators.append("Ewh")
         return generators, outputs
@@ -506,13 +531,13 @@ class Interpreter:
     """
     def _extract_condition_tokens(self, tokens: List[str]) -> List[str]:
         if '(' not in tokens or ')' not in tokens:
-            raise Exception("Syntax error: condition must be in parentheses")
+            self._raise_error("Syntax error: condition must be in parentheses")
         
         lpar_idx = tokens.index('(')
         rpar_idx = tokens.index(')')
         
         if rpar_idx <= lpar_idx + 1:
-            raise Exception("Syntax error: empty condition")
+            self._raise_error("Syntax error: empty condition")
         
         return tokens[lpar_idx + 1:rpar_idx]
 
@@ -599,7 +624,8 @@ class Interpreter:
             # or a bare expression "expr;" whose value is discarded.
             if '=' in work_tokens:
                 generators_called.append("assign")
-                self._exec_assignment(work_tokens)
+                assign_outputs = self._exec_assignment(work_tokens)
+                print_outputs.extend(assign_outputs)
             else:
                 generators_called.append("evaluate")
                 expr_outputs = self._exec_expression(work_tokens)
@@ -618,7 +644,7 @@ class Interpreter:
     """
     def _eval_pythonic_expr(self, expr_tokens: List[str]) -> int:
         if not expr_tokens:
-            raise Exception("Syntax error: empty expression")
+            self._raise_error("Syntax error: empty expression")
 
         # Map Lang operators to Python operators
         python_tokens: List[str] = []
@@ -638,16 +664,16 @@ class Interpreter:
         try:
             value = eval(expr_str, {"__builtins__": None}, env)
         except ZeroDivisionError:
-            raise Exception("Runtime error: division by zero")
+            self._raise_error("Runtime error: division by zero")
         except NameError as e:
-            raise Exception(f"Runtime error: {e}")
+            self._raise_error(f"Runtime error: {e}")
         except SyntaxError:
-            raise Exception("Syntax error: invalid expression")
+            self._raise_error("Syntax error: invalid expression")
         except Exception as e:
-            raise Exception(f"Runtime error: invalid expression: {e}")
+            self._raise_error(f"Runtime error: invalid expression: {e}")
 
         if not isinstance(value, int):
-            raise Exception("Runtime error: expression must evaluate to an integer")
+            self._raise_error("Runtime error: expression must evaluate to an integer")
 
         return value
 
@@ -657,43 +683,45 @@ class Interpreter:
         * DESCRIPTION: Execute an assignment of the form          *
         *              IDENT = expression ;                       *
         * PARAMETERS: tokens (List[str])                          *
-        * RETURN VALUE: None                                      *
+        * RETURN VALUE: List[int] - print outputs from RHS        *
         **********************************************************/
     """
-    def _exec_assignment(self, tokens: List[str]) -> None:
+    def _exec_assignment(self, tokens: List[str]) -> List[int]:
         if not tokens:
-            return
+            return []
 
         # Remove trailing ';' for analysis
         core = tokens[:-1] if tokens[-1] == ';' else list(tokens)
         if not core:
-            return
+            return []
 
         if '=' not in core:
-            raise Exception("Syntax error: assignment requires '='")
+            self._raise_error("Syntax error: assignment requires '='")
 
         eq_index = core.index('=')
         lhs_tokens = core[:eq_index]
         rhs_tokens = core[eq_index + 1 :]
 
         if len(lhs_tokens) != 1:
-            raise Exception("Syntax error: invalid assignment target")
+            self._raise_error("Syntax error: invalid assignment target")
 
         name = lhs_tokens[0]
 
         if name in {"integer", "input", "print", "=", "(", ")", ";"}:
-            raise Exception("Syntax error: invalid assignment target")
+            self._raise_error("Syntax error: invalid assignment target")
 
         if name not in self.variables:
-            raise Exception(f"Runtime error: variable '{name}' is not declared")
+            self._raise_error(f"Runtime error: variable '{name}' is not declared")
 
         if not rhs_tokens:
-            raise Exception("Syntax error: expected expression after '='")
+            self._raise_error("Syntax error: expected expression after '='")
 
         # Evaluate RHS (may include function calls)
         value, func_outputs = self._eval_with_function_calls(rhs_tokens)
         self.variables[name] = value
-        # Note: func_outputs from assignment RHS are not displayed in this context
+        
+        # Return any prints produced by functions in the RHS
+        return func_outputs
 
     """
         /**********************************************************
@@ -727,10 +755,10 @@ class Interpreter:
     """
     def _expect_identifier_after(self, tokens: List[str], keyword_index: int) -> str:
         if keyword_index + 1 >= len(tokens):
-            raise Exception("Syntax error: expected identifier")
+            self._raise_error("Syntax error: expected identifier")
         ident = tokens[keyword_index + 1]
         if ident in {"integer", "input", "print", "=", "(", ")", ";"}:
-            raise Exception("Syntax error: expected identifier")
+            self._raise_error("Syntax error: expected identifier")
         return ident
 
     """
@@ -747,17 +775,17 @@ class Interpreter:
         try:
             k = tokens.index("integer")
         except ValueError:
-            raise Exception("Syntax error in declaration")
+            self._raise_error("Syntax error in declaration")
         ident = self._expect_identifier_after(tokens, k)
 
         value: int = 0
         if '=' in tokens:
             eq_index = tokens.index('=')
             if eq_index + 1 >= len(tokens):
-                raise Exception("Syntax error: expected initializer after '='")
+                self._raise_error("Syntax error: expected initializer after '='")
             lit = tokens[eq_index + 1]
             if not lit.isdigit():
-                raise Exception("Syntax error: initializer must be integer literal")
+                self._raise_error("Syntax error: initializer must be integer literal")
             value = int(lit)
         self.variables[ident] = value
 
@@ -776,19 +804,19 @@ class Interpreter:
             lpar = tokens.index('(')
             rpar = tokens.index(')')
         except ValueError:
-            raise Exception("Syntax error: input requires parentheses")
+            self._raise_error("Syntax error: input requires parentheses")
         if rpar - lpar != 2:
-            raise Exception("Syntax error: input takes exactly one identifier")
+            self._raise_error("Syntax error: input takes exactly one identifier")
         ident = tokens[lpar + 1]
         if ident in {"integer", "input", "print", "=", "(", ")", ";"}:
-            raise Exception("Syntax error: expected identifier in input")
+            self._raise_error("Syntax error: expected identifier in input")
         if ident not in self.variables:
-            raise Exception(f"Runtime error: variable '{ident}' is not declared")
+            self._raise_error(f"Runtime error: variable '{ident}' is not declared")
         try:
             user_val_str = input("=> ")
             user_val = int(user_val_str.strip())
         except Exception:
-            raise Exception("Runtime error: input must be an integer")
+            self._raise_error("Runtime error: input must be an integer")
         self.variables[ident] = user_val
 
     """
@@ -805,15 +833,15 @@ class Interpreter:
             lpar = tokens.index('(')
             rpar = tokens.index(')')
         except ValueError:
-            raise Exception("Syntax error: print requires parentheses")
+            self._raise_error("Syntax error: print requires parentheses")
         if rpar - lpar != 2:
-            raise Exception("Syntax error: print takes exactly one operand")
+            self._raise_error("Syntax error: print takes exactly one operand")
         operand = tokens[lpar + 1]
         if operand.isdigit():
             value = int(operand)
         else:
             if operand not in self.variables:
-                raise Exception(f"Runtime error: variable '{operand}' is not declared")
+                self._raise_error(f"Runtime error: variable '{operand}' is not declared")
             value = self.variables[operand]
         return value
 
@@ -852,7 +880,7 @@ class Interpreter:
         
         # Check argument count
         if len(arg_values) != len(param_names):
-            raise Exception(
+            self._raise_error(
                 f"Runtime error: function '{name}' expects {len(param_names)} "
                 f"arguments but got {len(arg_values)}"
             )
@@ -874,6 +902,11 @@ class Interpreter:
         # Execute function body
         return_value = 0  # Default return value
         print_outputs: List[int] = []
+        
+        # Save and set function context for error messages
+        saved_function = self._current_function
+        self._current_function = name
+        
         try:
             # Temporarily swap variables to use function's environment
             saved_vars = self.variables
@@ -884,11 +917,13 @@ class Interpreter:
                 print_outputs = outputs
             except ReturnValue as ret:
                 return_value = ret.value
+                print_outputs = ret.outputs  # Recover outputs accumulated before return
             finally:
                 # Restore original variables
                 self.variables = saved_vars
         finally:
-            # Pop environment
+            # Restore function context and pop environment
+            self._current_function = saved_function
             self.func_utils.pop_env()
         
         return return_value, print_outputs
@@ -1000,6 +1035,9 @@ class Interpreter:
         while i < len(lines):
             line = lines[i]
             stripped = line.strip()
+            
+            # Track current line for error reporting
+            self._current_source_line = i + 1
             
             # Skip empty lines and comments
             if not stripped or stripped.startswith('#'):

@@ -28,10 +28,11 @@ from typing import Dict, List, Tuple, Optional, Any
 class ReturnValue(Exception):
     """
     Exception used to signal an early return from a function.
-    Carries the return value with it.
+    Carries the return value and any accumulated print outputs with it.
     """
-    def __init__(self, value: int):
+    def __init__(self, value: int, outputs: list = None):
         self.value = value
+        self.outputs = outputs if outputs is not None else []
         super().__init__()
 
 
