@@ -1,0 +1,132 @@
+# Comprehensive test: integers, math, if/elif/else, while, nested blocks,
+# logical operators in expressions, and user-defined functions.
+
+# --- Integer declarations and basic math ---
+integer a = 10
+integer b = 3
+integer c = 0
+
+# c = 10 + 3 * 2 - 4 / 2  => 10 + 6 - 2 = 14
+c = a + b * 2 - 4 / 2
+print(c)
+
+
+# --- While loop with nested if ---
+integer i = 1
+integer sum = 0
+
+# Sum of 1..5, printing the running total (1, 3, 6, 10, 15)
+while (i <= 5):
+    sum = sum + i
+    if (i % 2 == 0):
+        # Even i: add 0 (no effect, just to exercise nested if)
+        sum = sum + 0
+    else:
+        # Odd i: also no-op, just another branch
+        sum = sum + 0
+    i = i + 1
+
+print(sum)
+
+
+# --- If / elif / else chain (reuses sum) ---
+integer grade = 0
+
+if (sum >= 20):
+    grade = 1
+elif (sum >= 15):
+    grade = 2
+elif (sum >= 10):
+    grade = 3
+else:
+    grade = 4
+
+print(grade)
+
+
+# --- Logical operators in an expression (kept as integer via * 1) ---
+integer logic = 0
+
+# (1 < 2 and 3 < 4) is True; multiplied by 1 yields 1
+logic = ((1 < 2) and (3 < 4)) * 1
+print(logic)
+
+
+# --- Functions with control flow and nested blocks ---
+
+# Absolute value using if/else
+func abs_val(x):
+    if (x < 0):
+        return 0 - x
+    else:
+        return x
+
+
+# Function that uses while + nested if/elif/else and prints from inside
+func classify_and_sum(limit):
+    integer i2 = 0
+    integer total = 0
+
+    while (i2 <= limit):
+        if (i2 == 0):
+            # print 0 for zero
+            print(0)
+        elif (i2 % 2 == 0):
+            # even > 0 -> print 2
+            print(2)
+        else:
+            # odd -> print 1
+            print(1)
+
+        total = total + i2
+        i2 = i2 + 1
+
+    return total
+
+
+# Function that uses another function and nested conditionals
+func nested_funcs(a1, b1):
+    integer av1 = 0
+    integer av2 = 0
+
+    av1 = abs_val(a1)
+    av2 = abs_val(b1)
+
+    if (av1 > av2):
+        print(100)
+    elif (av1 == av2):
+        print(200)
+    else:
+        print(300)
+
+    return av1 + av2
+
+
+# --- Main program using the functions above ---
+
+integer main_result = 0
+integer class_total = 0
+integer nested_total = 0
+
+# Test abs_val with a negative and positive input
+main_result = abs_val(-5)
+print(main_result)
+
+main_result = abs_val(7)
+print(main_result)
+
+# classify_and_sum(3) should:
+#  i2 = 0 -> print 0
+#  i2 = 1 -> print 1
+#  i2 = 2 -> print 2
+#  i2 = 3 -> print 1
+# and return 0 + 1 + 2 + 3 = 6
+class_total = classify_and_sum(3)
+print(class_total)
+
+# nested_funcs(-4, 2):
+#  abs_val(-4) = 4, abs_val(2) = 2 -> prints 100, returns 6
+nested_total = nested_funcs(-4, 2)
+print(nested_total)
+
+
