@@ -1,0 +1,59 @@
+# Test file for function definitions and calls
+
+# Function with no parameters, no explicit return
+func greet():
+    integer msg = 42
+    print(msg)
+
+# Function with parameters that returns a value
+func add(a, b):
+    integer result = 0
+    result = a + b
+    return result
+
+# Function with parameters, explicit return
+func square(x):
+    return x * x
+
+# Function that uses another function
+func sum_of_squares(a, b):
+    integer sa = 0
+    integer sb = 0
+    sa = square(a)
+    sb = square(b)
+    return sa + sb
+
+# Function with no explicit return (returns 0)
+func print_value(val):
+    print(val)
+
+# Main execution
+integer x = 5
+integer y = 3
+
+# Call greet function
+greet()
+
+# Call add and print result
+integer sum = 0
+sum = add(x, y)
+print(sum)
+
+# Use function in expression
+integer sq = 0
+sq = square(4)
+print(sq)
+
+# Call function that uses other functions
+integer result = 0
+result = sum_of_squares(x, y)
+print(result)
+
+# Call function with no return
+print_value(99)
+
+# Use function result directly in arithmetic
+integer combined = 0
+combined = add(10, 20) + square(2)
+print(combined)
+

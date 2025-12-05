@@ -26,6 +26,7 @@ from typing import Dict, List, Tuple, Optional
 
 from Tokenizer import Tokenizer
 from Encoder import Encoder
+from FunctionUtils import FunctionUtils, ReturnValue
 
 
 class Interpreter:
@@ -45,6 +46,7 @@ class Interpreter:
     def __init__(self, verbose: bool = False) -> None:
         self.tokenizer = Tokenizer()
         self.encoder = Encoder()
+        self.func_utils = FunctionUtils()
         self._interactive_line_no = 0
         self.verbose: bool = verbose
         self.variables: Dict[str, int] = {}
@@ -63,6 +65,7 @@ class Interpreter:
     """
     def reset_session(self) -> None:
         self.encoder.reset()
+        self.func_utils.reset()
         self._interactive_line_no = 0
         self.variables.clear()
         self.in_block = False
@@ -195,9 +198,9 @@ class Interpreter:
         if not left_tokens or not right_tokens:
             raise Exception("Syntax error: invalid condition")
         
-        # Evaluate both sides
-        left_val = self._eval_pythonic_expr(left_tokens)
-        right_val = self._eval_pythonic_expr(right_tokens)
+        # Evaluate both sides (may include function calls)
+        left_val, _ = self._eval_with_function_calls(left_tokens)
+        right_val, _ = self._eval_with_function_calls(right_tokens)
         
         # Apply comparison
         if op == '==':
@@ -245,7 +248,11 @@ class Interpreter:
 
             first_tok = tokens[0]
 
-            if first_tok == 'if':
+            if first_tok == 'return':
+                # Handle return statement
+                return_val = self._exec_return(tokens)
+                raise ReturnValue(return_val)
+            elif first_tok == 'if':
                 header_indent = self._get_indent_level(line)
                 condition_tokens = self._extract_condition_tokens(tokens)
                 block_lines, next_idx = self._parse_indented_block_from_lines(
@@ -595,7 +602,8 @@ class Interpreter:
                 self._exec_assignment(work_tokens)
             else:
                 generators_called.append("evaluate")
-                self._exec_expression(work_tokens)
+                expr_outputs = self._exec_expression(work_tokens)
+                print_outputs.extend(expr_outputs)
 
         return generators_called, print_outputs
 
@@ -682,8 +690,10 @@ class Interpreter:
         if not rhs_tokens:
             raise Exception("Syntax error: expected expression after '='")
 
-        value = self._eval_pythonic_expr(rhs_tokens)
+        # Evaluate RHS (may include function calls)
+        value, func_outputs = self._eval_with_function_calls(rhs_tokens)
         self.variables[name] = value
+        # Note: func_outputs from assignment RHS are not displayed in this context
 
     """
         /**********************************************************
@@ -694,15 +704,17 @@ class Interpreter:
         * RETURN VALUE: None                                      *
         **********************************************************/
     """
-    def _exec_expression(self, tokens: List[str]) -> None:
+    def _exec_expression(self, tokens: List[str]) -> Tuple[List[int]]:
         if not tokens:
-            return
+            return []
 
         core = tokens[:-1] if tokens[-1] == ';' else list(tokens)
         if not core:
-            return
+            return []
 
-        _ = self._eval_pythonic_expr(core)
+        # May be a function call or regular expression
+        _, func_outputs = self._eval_with_function_calls(core)
+        return func_outputs
 
     """
         /**********************************************************
@@ -807,6 +819,171 @@ class Interpreter:
 
     """
         /**********************************************************
+        * METHOD: _exec_return                                    *
+        * DESCRIPTION: Execute a return statement and get value   *
+        * PARAMETERS: tokens (List[str])                          *
+        * RETURN VALUE: int (return value, 0 if no expr)          *
+        **********************************************************/
+    """
+    def _exec_return(self, tokens: List[str]) -> int:
+        # Pattern: return [expr] ;
+        # Remove trailing ';' for analysis
+        core = tokens[:-1] if tokens[-1] == ';' else list(tokens)
+        
+        if len(core) == 1:
+            # Just 'return' with no expression
+            return 0
+        
+        # Evaluate the return expression
+        expr_tokens = core[1:]
+        return self._eval_pythonic_expr(expr_tokens)
+
+    """
+        /**********************************************************
+        * METHOD: _call_function                                  *
+        * DESCRIPTION: Call a user-defined function with args     *
+        * PARAMETERS: name (str), arg_values (List[int])          *
+        * RETURN VALUE: (int, List[int]) - return value & prints *
+        **********************************************************/
+    """
+    def _call_function(self, name: str, arg_values: List[int]) -> Tuple[int, List[int]]:
+        # Get function definition
+        param_names, body_lines = self.func_utils.get_function(name)
+        
+        # Check argument count
+        if len(arg_values) != len(param_names):
+            raise Exception(
+                f"Runtime error: function '{name}' expects {len(param_names)} "
+                f"arguments but got {len(arg_values)}"
+            )
+        
+        # Create new environment with parameters bound to arguments
+        new_env = {}
+        for param_name, arg_val in zip(param_names, arg_values):
+            new_env[param_name] = arg_val
+        
+        # Also copy global variables into the new environment
+        # This allows functions to read globals but not modify them
+        for var_name, var_val in self.variables.items():
+            if var_name not in new_env:
+                new_env[var_name] = var_val
+        
+        # Push new environment
+        self.func_utils.push_env(new_env)
+        
+        # Execute function body
+        return_value = 0  # Default return value
+        print_outputs: List[int] = []
+        try:
+            # Temporarily swap variables to use function's environment
+            saved_vars = self.variables
+            self.variables = self.func_utils.get_current_env()
+            
+            try:
+                _, outputs = self._execute_block(body_lines)
+                print_outputs = outputs
+            except ReturnValue as ret:
+                return_value = ret.value
+            finally:
+                # Restore original variables
+                self.variables = saved_vars
+        finally:
+            # Pop environment
+            self.func_utils.pop_env()
+        
+        return return_value, print_outputs
+
+    """
+        /**********************************************************
+        * METHOD: _eval_with_function_calls                       *
+        * DESCRIPTION: Evaluate expression that may contain       *
+        *              function calls                             *
+        * PARAMETERS: tokens (List[str])                          *
+        * RETURN VALUE: (int, List[int]) - value & print outputs *
+        **********************************************************/
+    """
+    def _eval_with_function_calls(self, tokens: List[str]) -> Tuple[int, List[int]]:
+        all_print_outputs: List[int] = []
+        
+        # Replace all function calls in the expression with their values
+        processed_tokens = self._replace_function_calls_in_tokens(tokens, all_print_outputs)
+        
+        # Evaluate the processed expression
+        value = self._eval_pythonic_expr(processed_tokens)
+        
+        return value, all_print_outputs
+    
+    """
+        /**********************************************************
+        * METHOD: _replace_function_calls_in_tokens               *
+        * DESCRIPTION: Find and replace function calls with their *
+        *              evaluated values in token list             *
+        * PARAMETERS: tokens (List[str]), outputs (List[int])     *
+        * RETURN VALUE: List[str] - processed tokens              *
+        **********************************************************/
+    """
+    def _replace_function_calls_in_tokens(self, tokens: List[str], outputs: List[int]) -> List[str]:
+        # Scan for function call patterns and replace them with their values
+        result: List[str] = []
+        i = 0
+        
+        while i < len(tokens):
+            # Check if this looks like a function call: identifier ( ... )
+            if (i < len(tokens) - 2 and 
+                tokens[i] not in {'func', 'return', 'if', 'else', 'elif', 'while', 
+                                  'integer', 'input', 'print'} and
+                i + 1 < len(tokens) and tokens[i + 1] == '('):
+                
+                # Find matching closing paren
+                paren_count = 0
+                j = i + 1
+                while j < len(tokens):
+                    if tokens[j] == '(':
+                        paren_count += 1
+                    elif tokens[j] == ')':
+                        paren_count -= 1
+                        if paren_count == 0:
+                            break
+                    j += 1
+                
+                if j < len(tokens) and paren_count == 0:
+                    # Extract function call tokens
+                    call_tokens = tokens[i:j+1]
+                    func_name = tokens[i]
+                    
+                    # Check if this is a user-defined function
+                    if self.func_utils.has_function(func_name):
+                        try:
+                            # Parse and evaluate the function call
+                            _, arg_token_groups = FunctionUtils.parse_function_call(call_tokens)
+                            
+                            # Recursively evaluate arguments (they might have function calls too)
+                            arg_values = []
+                            for arg_tokens in arg_token_groups:
+                                processed_arg = self._replace_function_calls_in_tokens(arg_tokens, outputs)
+                                arg_val = self._eval_pythonic_expr(processed_arg)
+                                arg_values.append(arg_val)
+                            
+                            # Call the function
+                            func_result, func_outputs = self._call_function(func_name, arg_values)
+                            outputs.extend(func_outputs)
+                            
+                            # Replace the call with its result
+                            result.append(str(func_result))
+                            i = j + 1
+                            continue
+                        except Exception:
+                            # If anything goes wrong, treat as regular tokens
+                            pass
+            
+            # Not a function call, keep the token as-is
+            result.append(tokens[i])
+            i += 1
+        
+        return result
+
+    """
+        /**********************************************************
         * METHOD: process_source_with_blocks                      *
         * DESCRIPTION: Execute multi-line source with if/elif/    *
         *              else and while blocks using indentation    *
@@ -836,7 +1013,31 @@ class Interpreter:
             
             first_tok = tokens[0]
             
-            if first_tok == 'if':
+            if first_tok == 'func':
+                # Parse function definition
+                base_indent = self._get_indent_level(line)
+                
+                # Parse function header
+                func_name, param_names = FunctionUtils.parse_function_header(tokens)
+                
+                # Collect function body
+                body_lines, next_idx = self._parse_indented_block_from_lines(lines, i + 1, base_indent)
+                
+                # Store function definition
+                self.func_utils.define_function(func_name, param_names, body_lines)
+                
+                # Encode tokens for the function header
+                self.encoder.encode_tokens(tokens)
+                
+                if self.verbose:
+                    all_display_lines.append(f"{i+1}. {stripped}")
+                    param_str = ", ".join(param_names) if param_names else "no parameters"
+                    all_display_lines.append(f"Defined function '{func_name}' with {param_str}")
+                    all_display_lines.append("")
+                
+                i = next_idx
+                
+            elif first_tok == 'if':
                 # Parse if statement with indented block
                 base_indent = self._get_indent_level(line)
                 condition_tokens = self._extract_condition_tokens(tokens)

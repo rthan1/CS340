@@ -34,7 +34,8 @@ class Tokenizer:
         'if', 'else', 'elif', 'while', 'for', 'def', 'return', 
         'print', 'input', 'output', 'class', 'import', 'from',
         'and', 'or', 'not', 'in', 'is', 'True', 'False', 'None',
-        'break', 'continue', 'pass', 'try', 'except', 'finally'
+        'break', 'continue', 'pass', 'try', 'except', 'finally',
+        'func'
     }
     
     # Define operators and symbols
