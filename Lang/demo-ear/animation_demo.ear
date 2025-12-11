@@ -1,0 +1,43 @@
+# Animation Demo - Bouncing Circle
+# Click "Run Graphics" to see the animation
+# The circle bounces around the screen!
+
+integer x = 100
+integer y = 100
+integer dx = 4
+integer dy = 3
+integer radius = 30
+
+# Rectangle that moves horizontally
+integer rectX = 400
+integer rectY = 350
+integer rectDx = 2
+
+func setup():
+    Renderer.init(800, 450)
+    Renderer.background(20, 25, 35)
+    Renderer.draw("circle", x, y, size=30, r=80, g=200, b=255)
+    Renderer.draw("rectangle", rectX, rectY, width=100, height=40, r=255, g=150, b=80)
+
+func update():
+    # Move the circle
+    x = x + dx
+    y = y + dy
+    
+    # Bounce off walls (with radius offset)
+    if (x > 770):
+        dx = 0 - dx
+    if (x < 30):
+        dx = 0 - dx
+    if (y > 420):
+        dy = 0 - dy
+    if (y < 30):
+        dy = 0 - dy
+    
+    # Move rectangle back and forth
+    rectX = rectX + rectDx
+    if (rectX > 700):
+        rectDx = 0 - rectDx
+    if (rectX < 100):
+        rectDx = 0 - rectDx
+

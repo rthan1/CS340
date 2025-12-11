@@ -23,10 +23,12 @@
 """
 
 from typing import Dict, List, Tuple, Optional
+import math
 
 from Tokenizer import Tokenizer
 from Encoder import Encoder
 from FunctionUtils import FunctionUtils, ReturnValue
+from Renderer import get_renderer, LangRenderer
 
 
 class Interpreter:
@@ -57,6 +59,9 @@ class Interpreter:
         # Track current source line for better error messages
         self._current_source_line: Optional[int] = None
         self._current_function: Optional[str] = None
+        # 2D Renderer instance
+        self.renderer: LangRenderer = get_renderer()
+        self._renderer_initialized: bool = False
 
     """
         /**********************************************************
@@ -619,6 +624,11 @@ class Interpreter:
             val = self._exec_print(work_tokens)
             print_outputs.append(val)
 
+        elif first_tok == "Renderer" and self._is_renderer_call(work_tokens):
+            # Pattern: Renderer . method ( args ) ;
+            generators_called.append("renderer_call")
+            self._exec_renderer_call(work_tokens)
+
         else:
             # Non-keyword statement: either an assignment "x = expr;"
             # or a bare expression "expr;" whose value is discarded.
@@ -658,8 +668,12 @@ class Interpreter:
 
         expr_str = " ".join(python_tokens)
 
-        # Use only current variables as the evaluation environment
+        # Use current variables plus math functions as the evaluation environment
         env = dict(self.variables)
+        # Add math functions for graphics/animation support
+        env['sin'] = lambda x: int(math.sin(math.radians(x)) * 1000)  # Returns sin * 1000 (integer)
+        env['cos'] = lambda x: int(math.cos(math.radians(x)) * 1000)  # Returns cos * 1000 (integer)
+        env['abs'] = abs
 
         try:
             value = eval(expr_str, {"__builtins__": None}, env)
@@ -847,6 +861,112 @@ class Interpreter:
 
     """
         /**********************************************************
+        * METHOD: _exec_renderer_call                             *
+        * DESCRIPTION: Execute a Renderer.xxx() method call       *
+        * PARAMETERS: tokens (List[str])                          *
+        * RETURN VALUE: None                                      *
+        **********************************************************/
+    """
+    def _exec_renderer_call(self, tokens: List[str]) -> None:
+        # Pattern: Renderer . method ( args ) ;
+        # Find the method name (token after the dot)
+        try:
+            dot_idx = tokens.index('.')
+        except ValueError:
+            self._raise_error("Syntax error: Renderer call requires dot notation")
+        
+        if dot_idx + 1 >= len(tokens):
+            self._raise_error("Syntax error: expected method name after 'Renderer.'")
+        
+        method_name = tokens[dot_idx + 1]
+        
+        # Find parentheses for arguments
+        try:
+            lpar = tokens.index('(')
+            rpar = tokens.index(')')
+        except ValueError:
+            self._raise_error("Syntax error: Renderer method call requires parentheses")
+        
+        # Extract argument tokens (between parentheses)
+        arg_tokens = tokens[lpar + 1:rpar]
+        
+        # Parse arguments - split by comma
+        args: List[str] = []
+        current_arg: List[str] = []
+        for tok in arg_tokens:
+            if tok == ',':
+                if current_arg:
+                    args.append(''.join(current_arg) if len(current_arg) == 1 else ' '.join(current_arg))
+                    current_arg = []
+            else:
+                current_arg.append(tok)
+        if current_arg:
+            args.append(''.join(current_arg) if len(current_arg) == 1 else ' '.join(current_arg))
+        
+        # Dispatch to renderer methods
+        if method_name == 'init':
+            width = 800
+            height = 450
+            if len(args) >= 2:
+                width = int(args[0])
+                height = int(args[1])
+            self.renderer.init(width, height)
+            self._renderer_initialized = True
+            
+        elif method_name == 'background':
+            if len(args) == 1:
+                # Grayscale
+                self.renderer.background(int(args[0]))
+            elif len(args) >= 3:
+                self.renderer.background(int(args[0]), int(args[1]), int(args[2]))
+            else:
+                self._raise_error("Syntax error: background() requires 1 or 3 arguments")
+                
+        elif method_name == 'draw':
+            if len(args) < 3:
+                self._raise_error("Syntax error: draw() requires at least 3 arguments (shape, x_var, y_var)")
+            
+            # First arg is shape type (string, may have quotes)
+            shape_type = args[0].strip('"').strip("'")
+            x_var = args[1]
+            y_var = args[2]
+            
+            # Parse optional keyword arguments
+            kwargs = {}
+            for arg in args[3:]:
+                if '=' in arg:
+                    key, val = arg.split('=', 1)
+                    key = key.strip()
+                    val = val.strip()
+                    # Convert numeric values
+                    try:
+                        kwargs[key] = int(val)
+                    except ValueError:
+                        kwargs[key] = val.strip('"').strip("'")
+            
+            # Pass the variables reference before drawing
+            self.renderer.variables_ref = self.variables
+            self.renderer.draw(shape_type, x_var, y_var, **kwargs)
+            
+        elif method_name == 'clear':
+            self.renderer.clear()
+            
+        else:
+            self._raise_error(f"Unknown Renderer method: {method_name}")
+
+    """
+        /**********************************************************
+        * METHOD: _is_renderer_call                               *
+        * DESCRIPTION: Check if tokens represent a Renderer call  *
+        * PARAMETERS: tokens (List[str])                          *
+        * RETURN VALUE: bool                                      *
+        **********************************************************/
+    """
+    def _is_renderer_call(self, tokens: List[str]) -> bool:
+        return len(tokens) >= 3 and tokens[0] == 'Renderer' and tokens[1] == '.'
+
+    """
+        /**********************************************************
         * METHOD: _exec_return                                    *
         * DESCRIPTION: Execute a return statement and get value   *
         * PARAMETERS: tokens (List[str])                          *
@@ -919,7 +1039,12 @@ class Interpreter:
                 return_value = ret.value
                 print_outputs = ret.outputs  # Recover outputs accumulated before return
             finally:
-                # Restore original variables
+                # Sync changes back to global variables
+                # If a global variable was modified in the function, update the global
+                for var_name in saved_vars:
+                    if var_name in self.variables:
+                        saved_vars[var_name] = self.variables[var_name]
+                # Restore original variables (now with synced values)
                 self.variables = saved_vars
         finally:
             # Restore function context and pop environment
@@ -1120,6 +1245,34 @@ class Interpreter:
                 i += 1
         
         return all_display_lines, all_outputs
+
+    """
+        /**********************************************************
+        * METHOD: run_graphics                                    *
+        * DESCRIPTION: Execute a graphics script with Renderer    *
+        *              support; starts the render loop after      *
+        *              script execution if Renderer was init'd    *
+        * PARAMETERS: source_text (str)                           *
+        * RETURN VALUE: (display_lines, print_outputs)            *
+        **********************************************************/
+    """
+    def run_graphics(self, source_text: str) -> Tuple[List[str], List[int]]:
+        # First, process the source to define functions and execute setup code
+        display_lines, outputs = self.process_source_with_blocks(source_text)
+        
+        # If a setup() function is defined, call it
+        if self.func_utils.has_function('setup'):
+            try:
+                _, setup_outputs = self._call_function('setup', [])
+                outputs.extend(setup_outputs)
+            except Exception as e:
+                raise Exception(f"Error in setup(): {e}")
+        
+        # If the renderer was initialized, start the render loop
+        if self._renderer_initialized:
+            self.renderer.run(self.variables)
+        
+        return display_lines, outputs
 
     """
         /**********************************************************

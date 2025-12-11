@@ -1,0 +1,14 @@
+# Renderer Demo - Circle and Rectangle
+# Click "Run Graphics" button to execute this script
+# The shapes will appear in the graphics panel
+
+integer x = 200
+integer y = 225
+integer rectX = 500
+integer rectY = 200
+
+func setup():
+    Renderer.init(800, 450)
+    Renderer.background(25, 30, 45)
+    Renderer.draw("circle", x, y, size=40, r=100, g=180, b=255)
+    Renderer.draw("rectangle", rectX, rectY, width=80, height=60, r=255, g=120, b=100)

@@ -1,0 +1,82 @@
+# Solar System Animation
+# Click "Run Graphics" to see planets orbiting the sun!
+# Uses sin/cos for circular orbits
+
+# Sun position (center of screen)
+integer sunX = 400
+integer sunY = 225
+
+# Planet 1 - Mercury (small, fast, close orbit)
+integer p1x = 400
+integer p1y = 225
+integer p1angle = 0
+integer p1radius = 70
+
+# Planet 2 - Earth (medium, blue)
+integer p2x = 400
+integer p2y = 225
+integer p2angle = 120
+integer p2radius = 120
+
+# Planet 3 - Mars (reddish, medium orbit)
+integer p3x = 400
+integer p3y = 225
+integer p3angle = 240
+integer p3radius = 170
+
+# Planet 4 - Jupiter (large, slow, outer orbit)
+integer p4x = 400
+integer p4y = 225
+integer p4angle = 60
+integer p4radius = 220
+
+func setup():
+    Renderer.init(800, 450)
+    Renderer.background(5, 5, 15)
+    
+    # Draw the Sun (big yellow circle in center)
+    Renderer.draw("circle", sunX, sunY, size=50, r=255, g=220, b=50)
+    
+    # Draw Mercury (small gray)
+    Renderer.draw("circle", p1x, p1y, size=8, r=180, g=180, b=180)
+    
+    # Draw Earth (blue-green)
+    Renderer.draw("circle", p2x, p2y, size=12, r=100, g=150, b=255)
+    
+    # Draw Mars (reddish)
+    Renderer.draw("circle", p3x, p3y, size=10, r=220, g=120, b=80)
+    
+    # Draw Jupiter (large, orange-tan)
+    Renderer.draw("circle", p4x, p4y, size=20, r=230, g=180, b=120)
+
+func update():
+    # Update angles (different speeds for each planet)
+    p1angle = p1angle + 5
+    p2angle = p2angle + 3
+    p3angle = p3angle + 2
+    p4angle = p4angle + 1
+    
+    # Keep angles in 0-359 range
+    if (p1angle > 359):
+        p1angle = p1angle - 360
+    if (p2angle > 359):
+        p2angle = p2angle - 360
+    if (p3angle > 359):
+        p3angle = p3angle - 360
+    if (p4angle > 359):
+        p4angle = p4angle - 360
+    
+    # Calculate orbital positions using sin/cos
+    # sin/cos return value * 1000, so divide by 1000
+    p1x = sunX + p1radius * cos(p1angle) / 1000
+    p1y = sunY + p1radius * sin(p1angle) / 1000
+    
+    p2x = sunX + p2radius * cos(p2angle) / 1000
+    p2y = sunY + p2radius * sin(p2angle) / 1000
+    
+    p3x = sunX + p3radius * cos(p3angle) / 1000
+    p3y = sunY + p3radius * sin(p3angle) / 1000
+    
+    p4x = sunX + p4radius * cos(p4angle) / 1000
+    p4y = sunY + p4radius * sin(p4angle) / 1000
+
