@@ -41,9 +41,10 @@ class CodeRunner(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("EAR Programming Language - Interactive IDE")
+
         self.setGeometry(100, 100, 1200, 800)
         # Enable verbose mode so tokens, code generators, and console outputs are shown
-        self.interpreter = Interpreter(verbose=True)
+        self.interpreter = Interpreter(verbose=False)
         self.init_ui()
         self._setup_renderer()
 
