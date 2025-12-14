@@ -2,11 +2,22 @@
 /*******************************************************************
 *                  2D Renderer for the Lang Language               *
 *                                                                  *
+*    PROGRAMMER: Ethan Nelson                                      *
+*    COURSE: CS340 Program Language Design                         *
+*    DATE: 12/13/25                                                *
+*    REQUIREMENT: Assignment extension                             *
+*                                                                  *
 *    DESCRIPTION:                                                  *
 *    Provides a built-in Renderer class for 2D graphics using      *
 *    PyQt6 QGraphicsView. Supports drawing basic shapes (circle,   *
 *    rectangle, line) that can be animated by binding to Lang      *
 *    variables. Embeds directly into PyQt6 GUI.                    *
+*                                                                  *
+*    COPYRIGHT:                                                    *
+*    This code is copyright (c)2025 Ethan Nelson and Dean Zeller.  *
+*                                                                  *
+*    CREDITS:                                                      *
+*    ChatGPT                                                       *
 *                                                                  *
 *******************************************************************/
 """
@@ -24,12 +35,28 @@ class LangRenderer:
     """
     _instance: Optional['LangRenderer'] = None
 
+    """
+        /**********************************************************
+        * METHOD: __new__                                         *
+        * DESCRIPTION: Enforce singleton instance creation         *
+        * PARAMETERS: cls (type)                                  *
+        * RETURN VALUE: LangRenderer                              *
+        **********************************************************/
+    """
     def __new__(cls) -> 'LangRenderer':
         if cls._instance is None:
             cls._instance = super().__new__(cls)
             cls._instance._initialized = False
         return cls._instance
 
+    """
+        /**********************************************************
+        * METHOD: __init__                                        *
+        * DESCRIPTION: Initialize renderer state (singleton-safe)  *
+        * PARAMETERS: None                                        *
+        * RETURN VALUE: None                                      *
+        **********************************************************/
+    """
     def __init__(self) -> None:
         if self._initialized:
             return
@@ -45,13 +72,15 @@ class LangRenderer:
         self._timer: Optional[QTimer] = None
         self._is_initialized: bool = False
 
+    """
+        /**********************************************************
+        * METHOD: set_view                                        *
+        * DESCRIPTION: Bind a QGraphicsView and create a scene     *
+        * PARAMETERS: view (QGraphicsView)                        *
+        * RETURN VALUE: None                                      *
+        **********************************************************/
+    """
     def set_view(self, view: QGraphicsView) -> None:
-        """
-        Set the QGraphicsView widget to render into.
-        
-        Parameters:
-            view: The QGraphicsView widget from the GUI
-        """
         self.view = view
         self.scene = QGraphicsScene()
         self.view.setScene(self.scene)
@@ -59,14 +88,15 @@ class LangRenderer:
         self.view.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.view.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
 
+    """
+        /**********************************************************
+        * METHOD: init                                            *
+        * DESCRIPTION: Initialize scene dimensions and background  *
+        * PARAMETERS: width (int), height (int)                   *
+        * RETURN VALUE: None                                      *
+        **********************************************************/
+    """
     def init(self, width: int = 800, height: int = 450) -> None:
-        """
-        Initialize the renderer with specified dimensions.
-        
-        Parameters:
-            width: Canvas width in pixels (default 800)
-            height: Canvas height in pixels (default 450)
-        """
         self._width = width
         self._height = height
         
@@ -85,15 +115,15 @@ class LangRenderer:
         
         self._is_initialized = True
 
+    """
+        /**********************************************************
+        * METHOD: background                                      *
+        * DESCRIPTION: Set background color (RGB or grayscale)     *
+        * PARAMETERS: r (int), g (int|None), b (int|None)          *
+        * RETURN VALUE: None                                      *
+        **********************************************************/
+    """
     def background(self, r: int, g: int = None, b: int = None) -> None:
-        """
-        Set the background color.
-        
-        Parameters:
-            r: Red component (0-255), or grayscale if g and b are None
-            g: Green component (0-255)
-            b: Blue component (0-255)
-        """
         if g is None and b is None:
             # Grayscale
             self._bg_color = (r, r, r)
@@ -103,26 +133,21 @@ class LangRenderer:
         if self.scene is not None:
             self.scene.setBackgroundBrush(QBrush(QColor(*self._bg_color)))
 
+    """
+        /**********************************************************
+        * METHOD: draw                                            *
+        * DESCRIPTION: Draw a shape tied to Lang variables         *
+        * PARAMETERS: shape_type (str), x_var (str), y_var (str),  *
+        *             size (int), width (int), height (int),       *
+        *             r (int), g (int), b (int),                   *
+        *             x2_var (str|None), y2_var (str|None)         *
+        * RETURN VALUE: int (shape_id)                             *
+        **********************************************************/
+    """
     def draw(self, shape_type: str, x_var: str, y_var: str, 
              size: int = 20, width: int = 40, height: int = 30,
              r: int = 255, g: int = 255, b: int = 255,
              x2_var: str = None, y2_var: str = None) -> int:
-        """
-        Draw a shape tied to variable names for animation.
-        
-        Parameters:
-            shape_type: "circle", "rectangle", or "line"
-            x_var: Variable name for x position
-            y_var: Variable name for y position
-            size: Radius for circle (default 20)
-            width: Width for rectangle (default 40)
-            height: Height for rectangle (default 30)
-            r, g, b: Color components (default white)
-            x2_var, y2_var: End point variables for line
-            
-        Returns:
-            Shape ID for future reference
-        """
         if self.scene is None:
             raise RuntimeError("Renderer not initialized. Call Renderer.init() first.")
         
@@ -185,8 +210,15 @@ class LangRenderer:
         
         return shape_id
 
+    """
+        /**********************************************************
+        * METHOD: _update_shapes                                  *
+        * DESCRIPTION: Update shape positions from variable values *
+        * PARAMETERS: None                                        *
+        * RETURN VALUE: None                                      *
+        **********************************************************/
+    """
     def _update_shapes(self) -> None:
-        """Update shape positions based on current variable values."""
         if self.variables_ref is None:
             return
         
@@ -218,14 +250,16 @@ class LangRenderer:
                 y2_val = self.variables_ref.get(y2_var, y_val) if y2_var else y_val
                 item.setLine(QLineF(x_val, y_val, x2_val, y2_val))
 
+    """
+        /**********************************************************
+        * METHOD: start_animation                                 *
+        * DESCRIPTION: Start timer-based shape updates (~60 FPS)   *
+        * PARAMETERS: variables_dict (Dict[str,int]),             *
+        *             update_callback (callable|None)             *
+        * RETURN VALUE: None                                      *
+        **********************************************************/
+    """
     def start_animation(self, variables_dict: Dict[str, int], update_callback=None) -> None:
-        """
-        Start the animation timer that updates shapes each frame.
-        
-        Parameters:
-            variables_dict: Reference to the interpreter's variables dictionary
-            update_callback: Optional callback to run each frame (e.g., to update variables)
-        """
         self.variables_ref = variables_dict
         self._update_callback = update_callback
         
@@ -235,27 +269,55 @@ class LangRenderer:
         
         self._timer.start(16)  # ~60 FPS
 
+    """
+        /**********************************************************
+        * METHOD: _on_timer_tick                                  *
+        * DESCRIPTION: Per-frame callback to update animation      *
+        * PARAMETERS: None                                        *
+        * RETURN VALUE: None                                      *
+        **********************************************************/
+    """
     def _on_timer_tick(self) -> None:
-        """Called each frame to update animation."""
         if self._update_callback:
             self._update_callback()
         self._update_shapes()
 
+    """
+        /**********************************************************
+        * METHOD: stop_animation                                  *
+        * DESCRIPTION: Stop the animation timer                   *
+        * PARAMETERS: None                                        *
+        * RETURN VALUE: None                                      *
+        **********************************************************/
+    """
     def stop_animation(self) -> None:
-        """Stop the animation timer."""
         if self._timer is not None:
             self._timer.stop()
 
+    """
+        /**********************************************************
+        * METHOD: clear                                           *
+        * DESCRIPTION: Remove all shapes from the scene            *
+        * PARAMETERS: None                                        *
+        * RETURN VALUE: None                                      *
+        **********************************************************/
+    """
     def clear(self) -> None:
-        """Remove all shapes from the renderer."""
         if self.scene is not None:
             for shape_id, info in list(self.shapes.items()):
                 self.scene.removeItem(info['item'])
         self.shapes.clear()
         self._shape_counter = 0
 
+    """
+        /**********************************************************
+        * METHOD: reset                                           *
+        * DESCRIPTION: Reset renderer to initial state             *
+        * PARAMETERS: None                                        *
+        * RETURN VALUE: None                                      *
+        **********************************************************/
+    """
     def reset(self) -> None:
-        """Reset the renderer to initial state."""
         self.stop_animation()
         self.clear()
         self._bg_color = (30, 30, 40)
@@ -263,8 +325,15 @@ class LangRenderer:
         if self.scene is not None:
             self.scene.setBackgroundBrush(QBrush(QColor(*self._bg_color)))
 
+    """
+        /**********************************************************
+        * METHOD: is_initialized                                  *
+        * DESCRIPTION: Check whether init() has been called        *
+        * PARAMETERS: None                                        *
+        * RETURN VALUE: bool                                      *
+        **********************************************************/
+    """
     def is_initialized(self) -> bool:
-        """Check if the renderer has been initialized."""
         return self._is_initialized
 
 
@@ -272,16 +341,30 @@ class LangRenderer:
 _renderer: Optional[LangRenderer] = None
 
 
+"""
+    /**********************************************************
+    * METHOD: get_renderer                                    *
+    * DESCRIPTION: Get or create the singleton renderer        *
+    * PARAMETERS: None                                        *
+    * RETURN VALUE: LangRenderer                              *
+    **********************************************************/
+"""
 def get_renderer() -> LangRenderer:
-    """Get or create the singleton renderer instance."""
     global _renderer
     if _renderer is None:
         _renderer = LangRenderer()
     return _renderer
 
 
+"""
+    /**********************************************************
+    * METHOD: reset_renderer                                  *
+    * DESCRIPTION: Reset and clear the singleton renderer      *
+    * PARAMETERS: None                                        *
+    * RETURN VALUE: None                                      *
+    **********************************************************/
+"""
 def reset_renderer() -> None:
-    """Reset the global renderer instance."""
     global _renderer
     if _renderer is not None:
         _renderer.reset()

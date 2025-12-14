@@ -68,46 +68,42 @@ class Encoder:
     SYMBOL_START_CODE: int = 600
     LITERAL_START_CODE: int = 900
 
-    def __init__(self) -> None:
-        """
+    """
         /**********************************************************
         * METHOD: __init__                                        *
         * DESCRIPTION: Initialize tables and counters              *
         * PARAMETERS: None                                        *
         * RETURN VALUE: None                                      *
         **********************************************************/
-        """
+    """
+    def __init__(self) -> None:
         self.reset()
 
-    def reset(self) -> None:
-        """
+    """
         /**********************************************************
         * METHOD: reset                                           *
         * DESCRIPTION: Clear symbol/literal tables and codes       *
         * PARAMETERS: None                                        *
         * RETURN VALUE: None                                      *
         **********************************************************/
-        """
+    """
+    def reset(self) -> None:
         self.symbol_to_code: Dict[str, int] = {}
         self.literal_to_code: Dict[int, int] = {}
         self.next_symbol_code: int = self.SYMBOL_START_CODE
         self.next_literal_code: int = self.LITERAL_START_CODE
         self.program_codes: List[int] = []
 
-    def encode_tokens(self, tokens: List[str]) -> List[Dict[str, object]]:
-        """
+    """
         /**********************************************************
         * METHOD: encode_tokens                                   *
-        * DESCRIPTION: Classify and encode tokens, updating       *
-        *              tables and program code stream             *
-        * PARAMETERS: tokens (list[str])                          *
-        * RETURN VALUE: list[dict] with keys:                     *
-        *   kind: 'Keyword'|'Operation'|'Symbol'|'Literal'        *
-        *   lexeme: original token string                         *
-        *   code: assigned integer code                           *
-        *   is_new: bool (for Symbol/Literal only)                *
+        * DESCRIPTION: Classify and encode tokens, updating        *
+        *              tables and program code stream              *
+        * PARAMETERS: tokens (list[str])                           *
+        * RETURN VALUE: list[dict] (encoded token objects)         *
         **********************************************************/
-        """
+    """
+    def encode_tokens(self, tokens: List[str]) -> List[Dict[str, object]]:
         encoded: List[Dict[str, object]] = []
         for tok in tokens:
             kind, code, is_new = self._encode_single(tok)
@@ -120,6 +116,14 @@ class Encoder:
             })
         return encoded
 
+    """
+        /**********************************************************
+        * METHOD: _encode_single                                  *
+        * DESCRIPTION: Encode a single token to (kind,code,is_new) *
+        * PARAMETERS: token (str)                                 *
+        * RETURN VALUE: (kind (str), code (int), is_new (bool))    *
+        **********************************************************/
+    """
     def _encode_single(self, token: str) -> Tuple[str, int, bool]:
         # Keyword
         if token in self.KEYWORD_CODES:
@@ -147,12 +151,36 @@ class Encoder:
         self.next_symbol_code += 1
         return 'Symbol', code, True
 
+    """
+        /**********************************************************
+        * METHOD: get_symbol_table                                *
+        * DESCRIPTION: Get a copy of the symbol table              *
+        * PARAMETERS: None                                        *
+        * RETURN VALUE: Dict[str, int]                             *
+        **********************************************************/
+    """
     def get_symbol_table(self) -> Dict[str, int]:
         return dict(self.symbol_to_code)
 
+    """
+        /**********************************************************
+        * METHOD: get_literal_table                               *
+        * DESCRIPTION: Get a copy of the literal table             *
+        * PARAMETERS: None                                        *
+        * RETURN VALUE: Dict[int, int]                             *
+        **********************************************************/
+    """
     def get_literal_table(self) -> Dict[int, int]:
         return dict(self.literal_to_code)
 
+    """
+        /**********************************************************
+        * METHOD: get_program_codes                               *
+        * DESCRIPTION: Get a copy of the program code stream       *
+        * PARAMETERS: None                                        *
+        * RETURN VALUE: List[int]                                  *
+        **********************************************************/
+    """
     def get_program_codes(self) -> List[int]:
         return list(self.program_codes)
 

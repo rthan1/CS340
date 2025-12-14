@@ -52,27 +52,27 @@ class Tokenizer:
         ',', ':', ';', '.', '@', '->', '=>'
     }
     
-    def __init__(self):
-        """
+    """
         /**********************************************************
         * METHOD: __init__                                        *
         * DESCRIPTION: Initialize a Tokenizer instance            *
         * PARAMETERS: None                                        *
         * RETURN VALUE: None                                      *
         **********************************************************/
-        """
+    """
+    def __init__(self):
         pass
     
-    @staticmethod
-    def tokenize_line(line):
-        """
+    """
         /**********************************************************
         * METHOD: tokenize_line                                   *
-        * DESCRIPTION: Tokenize a single line of Lang code        *
-        * PARAMETERS: line (str) - input code line                *
-        * RETURN VALUE: list[str] - tokens for the line           *
+        * DESCRIPTION: Tokenize a single line of Lang code         *
+        * PARAMETERS: line (str) - input code line                 *
+        * RETURN VALUE: list[str] - tokens for the line            *
         **********************************************************/
-        """
+    """
+    @staticmethod
+    def tokenize_line(line):
         tokens = []
         # Strip comments starting with '#'
         hash_index = line.find('#')
@@ -107,30 +107,30 @@ class Tokenizer:
         
         return tokens
     
-    @staticmethod
-    def format_tokens(tokens):
-        """
+    """
         /**********************************************************
         * METHOD: format_tokens                                   *
-        * DESCRIPTION: Format tokens separated by vertical bars   *
-        * PARAMETERS: tokens (list[str]) - tokens to format       *
-        * RETURN VALUE: str - tokens joined with " | "            *
+        * DESCRIPTION: Format tokens separated by vertical bars    *
+        * PARAMETERS: tokens (list[str]) - tokens to format        *
+        * RETURN VALUE: str - tokens joined with " | "             *
         **********************************************************/
-        """
+    """
+    @staticmethod
+    def format_tokens(tokens):
         if not tokens:
             return ""
         return " | ".join(tokens)
     
-    @staticmethod
-    def tokenize_file(file_path):
-        """
+    """
         /**********************************************************
         * METHOD: tokenize_file                                   *
-        * DESCRIPTION: Tokenize an entire file                    *
-        * PARAMETERS: file_path (str) - path to source file       *
-        * RETURN VALUE: list[tuple] - (line_no, content, tokens)  *
+        * DESCRIPTION: Tokenize an entire file                     *
+        * PARAMETERS: file_path (str) - path to source file        *
+        * RETURN VALUE: list[tuple] - (line_no, content, tokens)   *
         **********************************************************/
-        """
+    """
+    @staticmethod
+    def tokenize_file(file_path):
         result = []
         
         try:
@@ -147,16 +147,16 @@ class Tokenizer:
         except Exception as e:
             raise Exception(f"Error tokenizing file: {e}")
     
-    @staticmethod
-    def print_tokenized_file(file_path):
-        """
+    """
         /**********************************************************
         * METHOD: print_tokenized_file                            *
-        * DESCRIPTION: Print tokenized lines with eol/eof         *
-        * PARAMETERS: file_path (str) - path to source file       *
+        * DESCRIPTION: Print tokenized lines with eol/eof          *
+        * PARAMETERS: file_path (str) - path to source file        *
         * RETURN VALUE: None                                      *
         **********************************************************/
-        """
+    """
+    @staticmethod
+    def print_tokenized_file(file_path):
         try:
             tokenized_lines = Tokenizer.tokenize_file(file_path)
             
@@ -180,15 +180,15 @@ class Tokenizer:
             raise Exception(f"Error printing tokenized file: {e}")
 
 
-def main():
-    """
+"""
     /**********************************************************
     * METHOD: main                                            *
     * DESCRIPTION: Entry point for testing the tokenizer      *
     * PARAMETERS: None                                        *
     * RETURN VALUE: None                                      *
     **********************************************************/
-    """
+"""
+def main():
     import sys
     
     if len(sys.argv) > 1:
